@@ -16,5 +16,12 @@ client = Client()
 client.login(BSKY_USERNAME, BSKY_PWD)
 
 
+def get_data():
+    """Fetch data from Bluesky API."""
+    # Example: Fetch the user's profile information
+    profile = client.get_profile(BSKY_USERNAME)
+    return profile
+
+
 
 
