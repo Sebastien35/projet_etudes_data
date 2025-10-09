@@ -55,7 +55,7 @@ package_name = "projet_etudes"
 project_name = "projet_etudes"
 kedro_init_version = "1.0.0"
 tools = "['Linting', 'Testing', 'Custom Logging', 'Documentation', 'Data Structure', 'PySpark']"
-example_pipeline = "True"
+example_pipeline = "False"
 source_dir = "src"
 
 [tool.pytest.ini_options]
