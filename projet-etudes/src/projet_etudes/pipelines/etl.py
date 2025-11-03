@@ -1,8 +1,8 @@
 import os
-
 from atproto import Client
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import requests 
 
 
 load_dotenv()
@@ -22,10 +22,22 @@ def get_client():
     if( not BSKY_PWD or not BSKY_USERNAME):
         raise ValueError("BSKY_PWD and BSKY_USERNAME must be set in environment variables")
 
-    client = Client()
-    client.login(BSKY_USERNAME, BSKY_PWD)
+    # client = Client()
+    # client.login(BSKY_USERNAME, BSKY_PWD)
+    payload = {
+        "identifier": BSKY_USERNAME,
+        "password": BSKY_PWD
+    }
+    r = requests.post("https://bsky.social/xrpc/com.atproto.server.createSession", json=payload)
+    r.raise_for_status()
+    data = r.json()
+    access = data.get("accessJwt", None)
+    refresh = data.get("refreshJwt", None)
 
-    return client
+    return {
+        "access_jwt": access,
+        "refresh_jwt": refresh
+    }
 
 
 def get_post_texts(client: Client, username: str, limit: int = 10):
@@ -36,11 +48,13 @@ def get_post_texts(client: Client, username: str, limit: int = 10):
     })
     return [item['post']['record']['text'] for item in feed['feed']]
 
-client = get_client()
-data = get_post_texts(client, 'gtconway.bsky.social', limit=5)
+# client = get_client()
+# data = get_post_texts(client, 'gtconway.bsky.social', limit=5)
 
-for post in data:
-    save_to_db = {'text': post}
-    conn = get_mongo_conn()
-    conn.insert_one(save_to_db)
+# for post in data:
+#     save_to_db = {'text': post}
+#     conn = get_mongo_conn()
+#     conn.insert_one(save_to_db)
+
+print(get_client())
 
