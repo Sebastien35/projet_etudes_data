@@ -266,10 +266,13 @@ jupyterlab-widgets==3.0.16
     # via ipywidgets
 kedro==1.0.0
     # via
+    #   kedro-airflow
     #   kedro-datasets
     #   kedro-telemetry
     #   kedro-viz
     #   projet_etudes (pyproject.toml)
+kedro-airflow==0.10.0
+    # via projet_etudes (pyproject.toml)
 kedro-datasets==8.1.0
     # via projet_etudes (pyproject.toml)
 kedro-telemetry==0.6.5
@@ -418,12 +421,12 @@ pyarrow==22.0.0
     # via kedro-datasets
 pycparser==2.23
     # via cffi
-pydantic==2.12.3
+pydantic==2.12.4
     # via
     #   atproto
     #   fastapi
     #   kedro-viz
-pydantic-core==2.41.4
+pydantic-core==2.41.5
     # via pydantic
 pygments==2.19.2
     # via
@@ -462,7 +465,9 @@ python-dotenv==1.2.1
 python-json-logger==4.0.0
     # via jupyter-events
 python-slugify==8.0.4
-    # via cookiecutter
+    # via
+    #   cookiecutter
+    #   kedro-airflow
 pytz==2025.2
     # via pandas
 pyyaml==6.0.3
@@ -519,6 +524,8 @@ seaborn==0.12.2
     # via projet_etudes (pyproject.toml)
 secure==1.0.1
     # via kedro-viz
+semver==3.0.4
+    # via kedro-airflow
 send2trash==1.8.3
     # via jupyter-server
 six==1.17.0
