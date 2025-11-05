@@ -4,22 +4,66 @@
 #
 #    pip-compile --allow-unsafe --extra=dev --extra=test --output-file=requirements-dev.txt --strip-extras pyproject.toml
 #
+aiobotocore==2.25.1
+    # via s3fs
+aiofiles==25.1.0
+    # via kedro-viz
+aiohappyeyeballs==2.6.1
+    # via aiohttp
+aiohttp==3.13.2
+    # via
+    #   aiobotocore
+    #   s3fs
+aioitertools==0.12.0
+    # via aiobotocore
+aiosignal==1.4.0
+    # via aiohttp
+annotated-doc==0.0.3
+    # via fastapi
 annotated-types==0.7.0
     # via pydantic
 antlr4-python3-runtime==4.9.3
     # via omegaconf
 anyio==4.11.0
-    # via httpx
+    # via
+    #   httpx
+    #   jupyter-server
+    #   starlette
+    #   watchfiles
 appdirs==1.4.4
     # via kedro-telemetry
+argon2-cffi==25.1.0
+    # via jupyter-server
+argon2-cffi-bindings==25.1.0
+    # via argon2-cffi
 arrow==1.4.0
-    # via cookiecutter
+    # via
+    #   cookiecutter
+    #   isoduration
+asttokens==3.0.0
+    # via stack-data
+async-lru==2.0.5
+    # via jupyterlab
+async-timeout==5.0.1
+    # via aiohttp
 atproto==0.0.63
-    # via streamlit-learn (pyproject.toml)
+    # via projet_etudes (pyproject.toml)
 attrs==25.4.0
-    # via kedro
+    # via
+    #   aiohttp
+    #   jsonschema
+    #   kedro
+    #   referencing
+babel==2.17.0
+    # via jupyterlab-server
+beautifulsoup4==4.14.2
+    # via nbconvert
 binaryornot==0.4.4
     # via cookiecutter
+bleach==6.3.0
+    # via nbconvert
+botocore==1.40.61
+    # via aiobotocore
 build==1.3.0
     # via kedro
 cachetools==6.2.1
@@ -30,7 +74,9 @@ certifi==2025.10.5
     #   httpx
     #   requests
 cffi==2.0.0
-    # via cryptography
+    # via
+    #   argon2-cffi-bindings
+    #   cryptography
 cfgv==3.4.0
     # via pre-commit
 chardet==5.2.0
@@ -40,138 +86,381 @@ charset-normalizer==3.4.4
 click==8.1.8
     # via
     #   atproto
+    #   click-default-group
     #   cookiecutter
     #   kedro
-    #   typer
+    #   uvicorn
+click-default-group==1.2.4
+    # via kedro-viz
+comm==0.2.3
+    # via
+    #   ipykernel
+    #   ipywidgets
 contourpy==1.3.2
     # via matplotlib
 cookiecutter==2.6.0
     # via kedro
+coverage==7.11.0
+    # via pytest-cov
 cryptography==45.0.7
     # via atproto
 cycler==0.12.1
     # via matplotlib
+debugpy==1.8.17
+    # via ipykernel
+decorator==5.2.1
+    # via ipython
+defusedxml==0.7.1
+    # via nbconvert
 distlib==0.4.0
     # via virtualenv
 dnspython==2.8.0
     # via
     #   atproto
     #   pymongo
+docopt==0.6.2
+    # via hdfs
 dotenv==0.9.9
-    # via streamlit-learn (pyproject.toml)
+    # via projet_etudes (pyproject.toml)
 dynaconf==3.2.12
     # via kedro
+et-xmlfile==2.0.0
+    # via openpyxl
 exceptiongroup==1.3.0
     # via
     #   anyio
+    #   ipython
     #   pytest
+executing==2.2.1
+    # via stack-data
+fastapi==0.121.0
+    # via kedro-viz
+fastjsonschema==2.21.2
+    # via nbformat
 filelock==3.20.0
     # via virtualenv
 fonttools==4.60.1
     # via matplotlib
+fqdn==1.5.1
+    # via jsonschema
+frozenlist==1.8.0
+    # via
+    #   aiohttp
+    #   aiosignal
 fsspec==2025.10.0
-    # via kedro
+    # via
+    #   kedro
+    #   kedro-viz
+    #   s3fs
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.45
     # via kedro
 h11==0.16.0
-    # via httpcore
+    # via
+    #   httpcore
+    #   uvicorn
+hdfs==2.7.3
+    # via kedro-datasets
 httpcore==1.0.9
     # via httpx
+httptools==0.7.1
+    # via uvicorn
 httpx==0.28.1
-    # via atproto
+    # via
+    #   atproto
+    #   jupyterlab
 identify==2.6.15
     # via pre-commit
 idna==3.11
     # via
     #   anyio
     #   httpx
+    #   jsonschema
     #   requests
+    #   yarl
 importlib-metadata==8.7.0
     # via kedro
 importlib-resources==6.5.2
     # via kedro
 iniconfig==2.3.0
     # via pytest
+ipykernel==7.1.0
+    # via jupyterlab
+ipylab==1.1.0
+    # via kedro
+ipython==8.37.0
+    # via
+    #   ipykernel
+    #   ipywidgets
+    #   kedro-viz
+    #   projet_etudes (pyproject.toml)
+ipywidgets==8.1.8
+    # via ipylab
+isoduration==20.11.0
+    # via jsonschema
+jedi==0.19.2
+    # via ipython
 jinja2==3.1.6
-    # via cookiecutter
+    # via
+    #   cookiecutter
+    #   jupyter-server
+    #   jupyterlab
+    #   jupyterlab-server
+    #   nbconvert
+jmespath==1.0.1
+    # via
+    #   aiobotocore
+    #   botocore
+joblib==1.5.2
+    # via scikit-learn
+json5==0.12.1
+    # via jupyterlab-server
+jsonpointer==3.0.0
+    # via jsonschema
+jsonschema==4.25.1
+    # via
+    #   jupyter-events
+    #   jupyterlab-server
+    #   nbformat
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+jupyter-client==8.6.3
+    # via
+    #   ipykernel
+    #   jupyter-server
+    #   nbclient
+jupyter-core==5.9.1
+    # via
+    #   ipykernel
+    #   jupyter-client
+    #   jupyter-server
+    #   jupyterlab
+    #   nbclient
+    #   nbconvert
+    #   nbformat
+jupyter-events==0.12.0
+    # via jupyter-server
+jupyter-lsp==2.3.0
+    # via jupyterlab
+jupyter-server==2.17.0
+    # via
+    #   jupyter-lsp
+    #   jupyterlab
+    #   jupyterlab-server
+    #   notebook
+    #   notebook-shim
+jupyter-server-terminals==0.5.3
+    # via jupyter-server
+jupyterlab==4.4.10
+    # via
+    #   notebook
+    #   projet_etudes (pyproject.toml)
+jupyterlab-pygments==0.3.0
+    # via nbconvert
+jupyterlab-server==2.28.0
+    # via
+    #   jupyterlab
+    #   notebook
+jupyterlab-widgets==3.0.16
+    # via ipywidgets
 kedro==1.0.0
     # via
+    #   kedro-datasets
     #   kedro-telemetry
-    #   streamlit-learn (pyproject.toml)
+    #   kedro-viz
+    #   projet_etudes (pyproject.toml)
+kedro-datasets==8.1.0
+    # via projet_etudes (pyproject.toml)
 kedro-telemetry==0.6.5
-    # via kedro
+    # via
+    #   kedro
+    #   kedro-viz
+kedro-viz==12.1.0
+    # via projet_etudes (pyproject.toml)
 kiwisolver==1.4.9
     # via matplotlib
+lark==1.3.1
+    # via rfc3987-syntax
+lazy-loader==0.4
+    # via kedro-datasets
 libipld==3.2.0
     # via atproto
 markdown-it-py==4.0.0
     # via rich
 markupsafe==3.0.3
-    # via jinja2
+    # via
+    #   jinja2
+    #   nbconvert
 matplotlib==3.10.7
-    # via streamlit-learn (pyproject.toml)
+    # via
+    #   kedro-datasets
+    #   seaborn
+matplotlib-inline==0.2.1
+    # via
+    #   ipykernel
+    #   ipython
 mdurl==0.1.2
     # via markdown-it-py
+mistune==3.1.4
+    # via nbconvert
 more-itertools==10.8.0
     # via kedro
+multidict==6.7.0
+    # via
+    #   aiobotocore
+    #   aiohttp
+    #   yarl
+nbclient==0.10.2
+    # via nbconvert
+nbconvert==7.16.6
+    # via jupyter-server
+nbformat==5.10.4
+    # via
+    #   jupyter-server
+    #   nbclient
+    #   nbconvert
+nest-asyncio==1.6.0
+    # via ipykernel
+networkx==3.4.2
+    # via kedro-viz
 nodeenv==1.9.1
     # via pre-commit
+notebook==7.4.7
+    # via
+    #   kedro
+    #   projet_etudes (pyproject.toml)
+notebook-shim==0.2.4
+    # via
+    #   jupyterlab
+    #   notebook
 numpy==2.2.6
     # via
     #   contourpy
     #   matplotlib
     #   pandas
-    #   streamlit-learn (pyproject.toml)
+    #   scikit-learn
+    #   scipy
+    #   seaborn
 omegaconf==2.3.0
     # via kedro
+openpyxl==3.1.5
+    # via kedro-datasets
+orjson==3.11.4
+    # via kedro-viz
+overrides==7.7.0
+    # via jupyter-server
 packaging==25.0
     # via
     #   build
+    #   ipykernel
+    #   jupyter-events
+    #   jupyter-server
+    #   jupyterlab
+    #   jupyterlab-server
+    #   kedro-viz
+    #   lazy-loader
     #   matplotlib
+    #   nbconvert
+    #   plotly
     #   pytest
 pandas==2.3.3
-    # via streamlit-learn (pyproject.toml)
+    # via
+    #   kedro-datasets
+    #   kedro-viz
+    #   projet_etudes (pyproject.toml)
+    #   seaborn
+pandocfilters==1.5.1
+    # via nbconvert
 parse==1.20.2
     # via kedro
+parso==0.8.5
+    # via jedi
+pathspec==0.12.1
+    # via kedro-viz
+pexpect==4.9.0
+    # via ipython
 pillow==12.0.0
     # via matplotlib
 platformdirs==4.5.0
-    # via virtualenv
+    # via
+    #   jupyter-core
+    #   virtualenv
+plotly==5.24.1
+    # via
+    #   kedro-datasets
+    #   kedro-viz
 pluggy==1.6.0
     # via
     #   kedro
     #   pytest
 pre-commit==4.3.0
-    # via streamlit-learn (pyproject.toml)
+    # via projet_etudes (pyproject.toml)
+prometheus-client==0.23.1
+    # via jupyter-server
+prompt-toolkit==3.0.52
+    # via ipython
+propcache==0.4.1
+    # via
+    #   aiohttp
+    #   yarl
+psutil==7.1.3
+    # via ipykernel
+ptyprocess==0.7.0
+    # via
+    #   pexpect
+    #   terminado
+pure-eval==0.2.3
+    # via stack-data
+py4j==0.10.9.7
+    # via pyspark
+pyarrow==22.0.0
+    # via kedro-datasets
 pycparser==2.23
     # via cffi
 pydantic==2.12.3
     # via
     #   atproto
-    #   streamlit-learn (pyproject.toml)
+    #   fastapi
+    #   kedro-viz
 pydantic-core==2.41.4
     # via pydantic
 pygments==2.19.2
     # via
-    #   pytest
+    #   ipython
+    #   nbconvert
     #   rich
 pymongo==4.15.3
-    # via streamlit-learn (pyproject.toml)
+    # via projet_etudes (pyproject.toml)
 pyparsing==3.2.5
     # via matplotlib
 pyproject-hooks==1.2.0
     # via build
-pytest==8.4.2
-    # via streamlit-learn (pyproject.toml)
+pyspark==3.5.7
+    # via kedro-datasets
+pytest==7.4.4
+    # via
+    #   projet_etudes (pyproject.toml)
+    #   pytest-cov
+    #   pytest-mock
+pytest-cov==3.0.0
+    # via projet_etudes (pyproject.toml)
+pytest-mock==1.13.0
+    # via projet_etudes (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
+    #   aiobotocore
     #   arrow
+    #   botocore
+    #   jupyter-client
     #   matplotlib
     #   pandas
 python-dotenv==1.2.1
-    # via dotenv
+    # via
+    #   dotenv
+    #   uvicorn
+python-json-logger==4.0.0
+    # via jupyter-events
 python-slugify==8.0.4
     # via cookiecutter
 pytz==2025.2
@@ -179,51 +468,138 @@ pytz==2025.2
 pyyaml==6.0.3
     # via
     #   cookiecutter
+    #   jupyter-events
     #   kedro
     #   omegaconf
     #   pre-commit
+    #   uvicorn
+pyzmq==27.1.0
+    # via
+    #   ipykernel
+    #   jupyter-client
+    #   jupyter-server
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+    #   jupyter-events
 requests==2.32.5
     # via
     #   cookiecutter
+    #   hdfs
+    #   jupyterlab-server
     #   kedro-telemetry
+rfc3339-validator==0.1.4
+    # via
+    #   jsonschema
+    #   jupyter-events
+rfc3986-validator==0.1.1
+    # via
+    #   jsonschema
+    #   jupyter-events
+rfc3987-syntax==1.1.0
+    # via jsonschema
 rich==14.2.0
     # via
     #   cookiecutter
     #   kedro
-    #   typer
-ruff==0.14.3
-    # via streamlit-learn (pyproject.toml)
-shellingham==1.5.4
-    # via typer
+rpds-py==0.28.0
+    # via
+    #   jsonschema
+    #   referencing
+ruff==0.12.12
+    # via projet_etudes (pyproject.toml)
+s3fs==2025.10.0
+    # via kedro-datasets
+scikit-learn==1.5.2
+    # via projet_etudes (pyproject.toml)
+scipy==1.15.3
+    # via scikit-learn
+seaborn==0.12.2
+    # via projet_etudes (pyproject.toml)
+secure==1.0.1
+    # via kedro-viz
+send2trash==1.8.3
+    # via jupyter-server
 six==1.17.0
-    # via python-dateutil
+    # via
+    #   hdfs
+    #   python-dateutil
+    #   rfc3339-validator
 smmap==5.0.2
     # via gitdb
 sniffio==1.3.1
     # via anyio
+soupsieve==2.8
+    # via beautifulsoup4
+stack-data==0.6.3
+    # via ipython
+starlette==0.49.3
+    # via fastapi
+tenacity==9.1.2
+    # via plotly
+terminado==0.18.1
+    # via
+    #   jupyter-server
+    #   jupyter-server-terminals
 text-unidecode==1.3
     # via python-slugify
+threadpoolctl==3.6.0
+    # via scikit-learn
+tinycss2==1.4.0
+    # via bleach
 toml==0.10.2
     # via kedro
 tomli==2.3.0
     # via
     #   build
+    #   coverage
+    #   jupyterlab
     #   kedro-telemetry
     #   pytest
 tomli-w==1.2.0
     # via kedro-telemetry
-typer==0.20.0
-    # via streamlit-learn (pyproject.toml)
+tornado==6.5.2
+    # via
+    #   ipykernel
+    #   jupyter-client
+    #   jupyter-server
+    #   jupyterlab
+    #   notebook
+    #   terminado
+traitlets==5.14.3
+    # via
+    #   ipykernel
+    #   ipython
+    #   ipywidgets
+    #   jupyter-client
+    #   jupyter-core
+    #   jupyter-events
+    #   jupyter-server
+    #   jupyterlab
+    #   matplotlib-inline
+    #   nbclient
+    #   nbconvert
+    #   nbformat
 typing-extensions==4.15.0
     # via
+    #   aiosignal
     #   anyio
+    #   async-lru
     #   atproto
+    #   beautifulsoup4
     #   exceptiongroup
+    #   fastapi
+    #   ipython
     #   kedro
+    #   mistune
+    #   multidict
     #   pydantic
     #   pydantic-core
-    #   typer
+    #   referencing
+    #   starlette
     #   typing-inspection
+    #   uvicorn
     #   virtualenv
 typing-inspection==0.4.2
     # via pydantic
@@ -231,11 +607,45 @@ tzdata==2025.2
     # via
     #   arrow
     #   pandas
+uri-template==1.3.0
+    # via jsonschema
 urllib3==2.5.0
-    # via requests
+    # via
+    #   botocore
+    #   requests
+uvicorn==0.38.0
+    # via kedro-viz
+uvloop==0.22.1
+    # via uvicorn
 virtualenv==20.35.4
     # via pre-commit
+watchfiles==1.1.1
+    # via
+    #   kedro-viz
+    #   uvicorn
+wcwidth==0.2.14
+    # via prompt-toolkit
+webcolors==25.10.0
+    # via jsonschema
+webencodings==0.5.1
+    # via
+    #   bleach
+    #   tinycss2
+websocket-client==1.9.0
+    # via jupyter-server
 websockets==15.0.1
-    # via atproto
+    # via
+    #   atproto
+    #   uvicorn
+widgetsnbextension==4.0.15
+    # via ipywidgets
+wrapt==1.17.3
+    # via aiobotocore
+yarl==1.22.0
+    # via aiohttp
 zipp==3.23.0
     # via importlib-metadata
+
+# The following packages are considered to be unsafe in a requirements file:
+setuptools==80.9.0
+    # via jupyterlab

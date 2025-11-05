@@ -31,5 +31,3 @@ install-all:
 
 # run:
 # 	streamlit run src/streamlit/app.py
-
-
