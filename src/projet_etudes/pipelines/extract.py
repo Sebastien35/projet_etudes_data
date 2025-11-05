@@ -25,7 +25,7 @@ def get_client():
 
 
 
-def format_posts(client: Client, username: str, limit: int = 10):
+def format_posts(client: Client, username: str, category: str, limit: int = 10):
     """
     Récupère les posts d'un utilisateur Bluesky
     et renvoie une liste d'objets contenant :
@@ -55,15 +55,17 @@ def format_posts(client: Client, username: str, limit: int = 10):
             formatted_posts.append({
                 "username": username,
                 "text": text,
-                "created_at": created_at
+                "created_at": created_at,
+                "category": category
             })
 
     return formatted_posts
 
 
 client = get_client()
-trusted_data_sources = [
-    # --- Major News ---
+
+data_sources = {}
+data_sources['news'] = [
     'apnews.bsky.social',
     'axios.com',
     'washingtonpost.com',
@@ -74,18 +76,20 @@ trusted_data_sources = [
     'bloomberg.bsky.social',
     'skynews.com',
     'aljazeera.com',
-
-    # --- Tech & Science ---
+]
+data_sources['tech'] = [
     'techcrunch.com',
     'verge.bsky.social',
     'wired.com',
     'arstechnica.com',
-    'noaa.bsky.social',        # active US weather data source
+]
+data_sources['science'] = [
+    'noaa.bsky.social',        # active US weather data source  
     'nasa.gov',                # NASA now uses its web domain instead of .bsky.social
     'esa.int',                 # European Space Agency
     'nature.com',
-
-    # --- Fact-Checking ---
+]
+data_sources['fact_checking'] = [
     'politifact.com',
     'snopes.com',
     'fullfact.org',
@@ -101,12 +105,13 @@ def validate_handle(client, username):
         return False
 untrusted = []
 data = []
-for source in trusted_data_sources:
-    if not validate_handle(client, source):
-        untrusted.append(source)
-        continue
-    posts = format_posts(client, source, limit=5)
-    data.extend(posts)
+for category, sources in data_sources.items():
+    for source in sources:
+        if not validate_handle(client, source):
+            untrusted.append(source)
+            continue
+        posts = format_posts(client, source, category, limit=5)
+        data.extend(posts)
 
 print(f"Fetched {len(data)} posts from trusted sources.")
 print(f"Untrusted sources: {untrusted}")
@@ -117,7 +122,8 @@ for post in data:
         'username': post['username'],
         'created_at': post['created_at'],
         'unique_id': f"{post['username']}_{post['created_at']}",
-        'utc_saved_at': datetime.now()
+        'utc_saved_at': datetime.now(),
+        'category': post['category']
     }
 
     conn = mongo.use_collection("posts")

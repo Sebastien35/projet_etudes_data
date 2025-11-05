@@ -38,7 +38,8 @@ for post in posts:
         'username': post['username'],
         'created_at': post['created_at'],
         'unique_id': post['unique_id'],
-        'text': transformed_text
+        'text': transformed_text,
+        "category": post['category']
     }
 
     conn = mongo.use_collection("cleaned_posts")
