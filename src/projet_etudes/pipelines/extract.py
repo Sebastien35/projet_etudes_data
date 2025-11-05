@@ -1,21 +1,15 @@
-import os
-
-import requests
 from atproto import Client
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
+import os
+from datetime import datetime
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../../..')
+from shared.mongo import mongo_client # noqa
 load_dotenv()
 
-def get_mongo_conn():
-    MONGO_CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
-    if not MONGO_CONNECTION_STRING:
-        raise ValueError("MONGO_CONNECTION_STRING must be set in environment variables")
-    mongo_client = MongoClient(MONGO_CONNECTION_STRING)
-    db = mongo_client["bluesky_db"]
-    posts_collection = db["posts"]  # This will use or create the 'posts' collection
-    return posts_collection
-
+mongo = mongo_client()
 
 def get_client():
     BSKY_PWD = os.getenv('BSKY_APP_PASSWORD')
@@ -43,11 +37,14 @@ def format_posts(client: Client, username: str, limit: int = 10):
         'actor': username,
         'limit': limit
     })
+    existing_posts = mongo.use_collection("posts").distinct("unique_id")
 
     formatted_posts = []
 
     # 🔹 la réponse est un objet avec un attribut .feed (une liste)
     for item in response.feed:
+        if(f"{username}_{item.post.record.created_at}" in existing_posts):
+            continue
         post = item.post
         record = post.record
 
@@ -115,8 +112,15 @@ print(f"Fetched {len(data)} posts from trusted sources.")
 print(f"Untrusted sources: {untrusted}")
 
 for post in data:
-    save_to_db = {'text': post['text'], 'username': post['username'], 'created_at': post['created_at']}
-    conn = get_mongo_conn()
+    save_to_db = {
+        'text': post['text'], 
+        'username': post['username'],
+        'created_at': post['created_at'],
+        'unique_id': f"{post['username']}_{post['created_at']}",
+        'utc_saved_at': datetime.now()
+    }
+
+    conn = mongo.use_collection("posts")
     conn.insert_one(save_to_db)
 
 
