@@ -14,15 +14,9 @@ class mongo_client():
             raise ValueError("MONGO_CONNECTION_STRING must be set in environment variables")
         self.mongo_client = MongoClient(MONGO_CONNECTION_STRING)
         self.db = self.mongo_client["bluesky_db"]
-        self.collections = {
-            "posts": self.db["posts"],  # This will use or create the 'posts' collection
-            "cleaned_posts": self.db["cleaned_posts"]  # This will use or create the 'cleaned_posts' collection
-        }
     
     def use_collection(self, collection_name: str):
-        if collection_name not in self.collections:
-            raise ValueError(f"Collection {collection_name} does not exist.")
-        return self.collections[collection_name]
+        return self.db[collection_name]
 
     def get_client(self):
         return self.mongo_client

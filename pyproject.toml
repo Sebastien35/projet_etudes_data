@@ -20,10 +20,10 @@ dependencies = [
     "pymongo",
     "dotenv",
     "pandas",
-    "atproto",
+    "atproto==0.0.63",
     "kedro-airflow",
-    "fastapi==0.95.2",
-    "pydantic<2"
+    "fastapi",
+    "pydantic"
 ]
 
 [project.scripts]

@@ -18,15 +18,18 @@ aioitertools==0.12.0
     # via aiobotocore
 aiosignal==1.4.0
     # via aiohttp
+annotated-doc==0.0.3
+    # via fastapi
+annotated-types==0.7.0
+    # via pydantic
 antlr4-python3-runtime==4.9.3
     # via omegaconf
-anyio==3.7.1
+anyio==4.11.0
     # via
     #   httpx
     #   jupyter-server
     #   starlette
     #   watchfiles
-    #   watchgod
 appdirs==1.4.4
     # via kedro-telemetry
 argon2-cffi==25.1.0
@@ -43,7 +46,7 @@ async-lru==2.0.5
     # via jupyterlab
 async-timeout==5.0.1
     # via aiohttp
-atproto==0.0.1
+atproto==0.0.63
     # via projet_etudes (pyproject.toml)
 attrs==25.4.0
     # via
@@ -71,7 +74,9 @@ certifi==2025.10.5
     #   httpx
     #   requests
 cffi==2.0.0
-    # via argon2-cffi-bindings
+    # via
+    #   argon2-cffi-bindings
+    #   cryptography
 cfgv==3.4.0
     # via pre-commit
 chardet==5.2.0
@@ -80,9 +85,13 @@ charset-normalizer==3.4.4
     # via requests
 click==8.1.8
     # via
+    #   atproto
+    #   click-default-group
     #   cookiecutter
     #   kedro
     #   uvicorn
+click-default-group==1.2.4
+    # via kedro-viz
 comm==0.2.3
     # via
     #   ipykernel
@@ -93,6 +102,8 @@ cookiecutter==2.6.0
     # via kedro
 coverage==7.11.0
     # via pytest-cov
+cryptography==45.0.7
+    # via atproto
 cycler==0.12.1
     # via matplotlib
 debugpy==1.8.17
@@ -104,7 +115,9 @@ defusedxml==0.7.1
 distlib==0.4.0
     # via virtualenv
 dnspython==2.8.0
-    # via pymongo
+    # via
+    #   atproto
+    #   pymongo
 docopt==0.6.2
     # via hdfs
 dotenv==0.9.9
@@ -120,7 +133,7 @@ exceptiongroup==1.3.0
     #   pytest
 executing==2.2.1
     # via stack-data
-fastapi==0.95.2
+fastapi==0.121.0
     # via
     #   kedro-viz
     #   projet_etudes (pyproject.toml)
@@ -136,7 +149,7 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2023.12.2
+fsspec==2025.10.0
     # via
     #   kedro
     #   kedro-viz
@@ -145,10 +158,6 @@ gitdb==4.0.12
     # via gitpython
 gitpython==3.1.45
     # via kedro
-graphql-core==3.2.7
-    # via strawberry-graphql
-greenlet==3.2.4
-    # via sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -160,7 +169,9 @@ httpcore==1.0.9
 httptools==0.7.1
     # via uvicorn
 httpx==0.28.1
-    # via jupyterlab
+    # via
+    #   atproto
+    #   jupyterlab
 identify==2.6.15
     # via pre-commit
 idna==3.11
@@ -267,8 +278,10 @@ kedro-airflow==0.10.0
 kedro-datasets==8.1.0
     # via projet_etudes (pyproject.toml)
 kedro-telemetry==0.6.5
-    # via kedro
-kedro-viz==7.1.0
+    # via
+    #   kedro
+    #   kedro-viz
+kedro-viz==12.1.0
     # via projet_etudes (pyproject.toml)
 kiwisolver==1.4.9
     # via matplotlib
@@ -276,8 +289,8 @@ lark==1.3.1
     # via rfc3987-syntax
 lazy-loader==0.4
     # via kedro-datasets
-lia-web==0.2.3
-    # via strawberry-graphql
+libipld==3.2.0
+    # via atproto
 markdown-it-py==4.0.0
     # via rich
 markupsafe==3.0.3
@@ -342,7 +355,7 @@ orjson==3.11.4
     # via kedro-viz
 overrides==7.7.0
     # via jupyter-server
-packaging==23.2
+packaging==25.0
     # via
     #   build
     #   ipykernel
@@ -356,7 +369,6 @@ packaging==23.2
     #   nbconvert
     #   plotly
     #   pytest
-    #   strawberry-graphql
 pandas==2.3.3
     # via
     #   kedro-datasets
@@ -369,6 +381,8 @@ parse==1.20.2
     # via kedro
 parso==0.8.5
     # via jedi
+pathspec==0.12.1
+    # via kedro-viz
 pexpect==4.9.0
     # via ipython
 pillow==12.0.0
@@ -409,11 +423,14 @@ pyarrow==22.0.0
     # via kedro-datasets
 pycparser==2.23
     # via cffi
-pydantic==1.10.24
+pydantic==2.12.4
     # via
+    #   atproto
     #   fastapi
     #   kedro-viz
     #   projet_etudes (pyproject.toml)
+pydantic-core==2.41.5
+    # via pydantic
 pygments==2.19.2
     # via
     #   ipython
@@ -444,7 +461,6 @@ python-dateutil==2.9.0.post0
     #   jupyter-client
     #   matplotlib
     #   pandas
-    #   strawberry-graphql
 python-dotenv==1.2.1
     # via
     #   dotenv
@@ -501,10 +517,8 @@ rpds-py==0.28.0
     #   referencing
 ruff==0.12.12
     # via projet_etudes (pyproject.toml)
-s3fs==2023.12.2
-    # via
-    #   kedro-datasets
-    #   kedro-viz
+s3fs==2025.10.0
+    # via kedro-datasets
 scikit-learn==1.5.2
     # via projet_etudes (pyproject.toml)
 scipy==1.15.3
@@ -528,14 +542,10 @@ sniffio==1.3.1
     # via anyio
 soupsieve==2.8
     # via beautifulsoup4
-sqlalchemy==2.0.44
-    # via kedro-viz
 stack-data==0.6.3
     # via ipython
-starlette==0.27.0
+starlette==0.49.3
     # via fastapi
-strawberry-graphql==0.284.2
-    # via kedro-viz
 tenacity==9.1.2
     # via plotly
 terminado==0.18.1
@@ -584,20 +594,25 @@ traitlets==5.14.3
 typing-extensions==4.15.0
     # via
     #   aiosignal
+    #   anyio
     #   async-lru
+    #   atproto
     #   beautifulsoup4
     #   exceptiongroup
+    #   fastapi
     #   ipython
     #   kedro
-    #   lia-web
     #   mistune
     #   multidict
     #   pydantic
+    #   pydantic-core
     #   referencing
-    #   sqlalchemy
-    #   strawberry-graphql
+    #   starlette
+    #   typing-inspection
     #   uvicorn
     #   virtualenv
+typing-inspection==0.4.2
+    # via pydantic
 tzdata==2025.2
     # via
     #   arrow
@@ -608,16 +623,16 @@ urllib3==2.5.0
     # via
     #   botocore
     #   requests
-uvicorn==0.25.0
+uvicorn==0.38.0
     # via kedro-viz
 uvloop==0.22.1
     # via uvicorn
 virtualenv==20.35.4
     # via pre-commit
 watchfiles==1.1.1
-    # via uvicorn
-watchgod==0.8.2
-    # via kedro-viz
+    # via
+    #   kedro-viz
+    #   uvicorn
 wcwidth==0.2.14
     # via prompt-toolkit
 webcolors==25.10.0
@@ -629,7 +644,9 @@ webencodings==0.5.1
 websocket-client==1.9.0
     # via jupyter-server
 websockets==15.0.1
-    # via uvicorn
+    # via
+    #   atproto
+    #   uvicorn
 widgetsnbextension==4.0.15
     # via ipywidgets
 wrapt==1.17.3
