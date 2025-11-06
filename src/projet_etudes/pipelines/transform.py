@@ -1,10 +1,8 @@
-import os
-import requests
-from atproto import Client
-from dotenv import load_dotenv
-from pymongo import MongoClient
-import sys
 import logging
+import os
+import sys
+
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

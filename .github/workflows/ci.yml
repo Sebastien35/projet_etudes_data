@@ -20,3 +20,7 @@ jobs:
     - name: Install dependencies
       run: |
         make install-all
+    - name: ruff check
+      run: |
+        make lint
+    - name: pytest

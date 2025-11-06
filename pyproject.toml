@@ -23,7 +23,8 @@ dependencies = [
     "atproto==0.0.63",
     "kedro-airflow",
     "fastapi",
-    "pydantic"
+    "pydantic",
+    "mysql-connector-python"
 ]
 
 [project.scripts]

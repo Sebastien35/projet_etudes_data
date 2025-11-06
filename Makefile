@@ -54,3 +54,6 @@ logs:
 # run:
 # 	streamlit run src/streamlit/app.py
 
+lint:
+	venv/bin/ruff check src/projet_etudes/pipelines --fix
+

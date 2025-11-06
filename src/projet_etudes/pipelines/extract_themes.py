@@ -1,10 +1,10 @@
+import os
+import sys
+from datetime import datetime
+
 from atproto import Client
 from dotenv import load_dotenv
-from pymongo import MongoClient
 
-import os
-from datetime import datetime
-import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../../..')
 from shared.mongo import mongo_client # noqa
 load_dotenv()
@@ -106,7 +106,7 @@ def fetch_posts_by_keyword():
 data = fetch_posts_by_keyword()
 for post in data:
     save_to_db = {
-        'text': post['text'], 
+        'text': post['text'],
         'username': post['username'],
         'created_at': post['created_at'],
         'unique_id': f"{post['username']}_{post['created_at']}",

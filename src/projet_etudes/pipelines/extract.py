@@ -1,10 +1,10 @@
+import os
+import sys
+from datetime import datetime
+
 from atproto import Client
 from dotenv import load_dotenv
-from pymongo import MongoClient
 
-import os
-from datetime import datetime
-import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../../..')
 from shared.mongo import mongo_client # noqa
 load_dotenv()
@@ -84,7 +84,7 @@ data_sources['tech'] = [
     'arstechnica.com',
 ]
 data_sources['science'] = [
-    'noaa.bsky.social',        # active US weather data source  
+    'noaa.bsky.social',        # active US weather data source
     'nasa.gov',                # NASA now uses its web domain instead of .bsky.social
     'esa.int',                 # European Space Agency
     'nature.com',
@@ -118,7 +118,7 @@ print(f"Untrusted sources: {untrusted}")
 
 for post in data:
     save_to_db = {
-        'text': post['text'], 
+        'text': post['text'],
         'username': post['username'],
         'created_at': post['created_at'],
         'unique_id': f"{post['username']}_{post['created_at']}",

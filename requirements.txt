@@ -303,6 +303,8 @@ multidict==6.7.0
     #   aiobotocore
     #   aiohttp
     #   yarl
+mysql-connector-python==9.5.0
+    # via projet_etudes (pyproject.toml)
 nbclient==0.10.2
     # via nbconvert
 nbconvert==7.16.6
