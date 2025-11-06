@@ -1,0 +1,60 @@
+services:
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airflow-webserver
+    restart: always
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://projet_user:projet_pass@database:3306/projet_etudes_db
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8083:8080"
+    command: webserver
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airflow-scheduler
+    restart: always
+    depends_on:
+      - airflow-webserver
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://projet_user:projet_pass@database:3306/projet_etudes_db
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: scheduler
+  database:
+    image: mariadb:latest
+    container_name: projet_etudes_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: sqlpass
+      MYSQL_DATABASE: projet_etudes_db
+      MYSQL_USER: projet_user
+      MYSQL_PASSWORD: projet_pass 
+    ports:
+      - "3360:3306"
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: projet_etudes_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: database
+      MYSQL_ROOT_PASSWORD: sqlpass
+    ports:
+      - "8084:80"

@@ -29,5 +29,28 @@ install-all:
 	python3 -m venv venv
 	venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt
 
+
+.PHONY: build db airflow-init up down logs
+build:
+	docker compose build --no-cache
+db:
+	docker compose up -d database
+airflow-init:
+	docker compose run --rm airflow-webserver airflow db init
+	docker compose run --rm airflow-webserver airflow users create \
+		--username admin \
+		--firstname Admin \
+		--lastname User \
+		--role Admin \
+		--email admin@example.com
+up: build airflow-init
+	docker compose up -d
+
+down:
+	docker compose down -v
+
+logs:
+	docker compose logs -f
 # run:
 # 	streamlit run src/streamlit/app.py
+

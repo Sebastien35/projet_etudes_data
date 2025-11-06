@@ -52,7 +52,7 @@ with DAG(
     start_date=datetime(2023,1,1),
     max_active_runs=3,
     # https://airflow.apache.org/docs/stable/scheduler.html#dag-runs
-    schedule_interval="@once",
+    schedule_interval="@hourly",
     catchup=False,
     # Default settings applied to all tasks
     default_args=dict(

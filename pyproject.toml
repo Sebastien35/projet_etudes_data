@@ -21,7 +21,9 @@ dependencies = [
     "dotenv",
     "pandas",
     "atproto",
-    "kedro-airflow"
+    "kedro-airflow",
+    "fastapi==0.95.2",
+    "pydantic<2"
 ]
 
 [project.scripts]
