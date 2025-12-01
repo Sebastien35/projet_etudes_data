@@ -1,4 +1,4 @@
-# To work on this project : 
+# To work on this project :
 ## Regarding dependencies:
 
 ### Necessary dependencies :
@@ -6,15 +6,13 @@
 - Make
 - Docker
 
-### Install python dependencies using 
+### Install python dependencies using
 ```
 make install-all
 ```
 
-- Add dependencies in pyproject.toml then run 
+- Add dependencies in pyproject.toml then run
 ```
 make requirements-all
 ```
 to register new dependencies.
-
-

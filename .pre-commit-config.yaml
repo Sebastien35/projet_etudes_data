@@ -6,9 +6,12 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.0  # or the latest version
     hooks:
       - id: ruff-check      # runs the linter
         args: [--fix]       # optional, fixes lint issues automatically
+        files: ^src/projet_etudes/  # only run on this directory
       - id: ruff-format     # runs the formatter
+        files: ^src/projet_etudes/

@@ -1,6 +1,12 @@
+import logging
+
 from kedro.framework.hooks import hook_impl
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 class SparkHooks:
     @hook_impl
@@ -11,7 +17,9 @@ class SparkHooks:
             parameters = context.config_loader.get("spark", None)
             if parameters is None:
                 # No spark config found, skip Spark init
-                print("[SparkHooks] No spark.yaml config found, skipping SparkSession initialization.")
+                logger.info(
+                    "[SparkHooks] No spark.yaml config found, skipping SparkSession initialization."
+                )
                 return
 
             spark_conf = SparkConf().setAll(parameters.items())
@@ -23,6 +31,6 @@ class SparkHooks:
             )
             _spark_session = spark_session_conf.getOrCreate()
             _spark_session.sparkContext.setLogLevel("WARN")
-            print("[SparkHooks] SparkSession initialized.")
+            logger.info("[SparkHooks] SparkSession initialized.")
         except Exception as e:
-            print(f"[SparkHooks] Error initializing SparkSession: {e}")
+            logger.info(f"[SparkHooks] Error initializing SparkSession: {e}")

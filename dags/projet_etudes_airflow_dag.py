@@ -6,9 +6,8 @@ from pathlib import Path
 from airflow import DAG
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-
-from kedro.framework.session import KedroSession
 from kedro.framework.project import configure_project
+from kedro.framework.session import KedroSession
 
 
 class KedroOperator(BaseOperator):
@@ -21,7 +20,8 @@ class KedroOperator(BaseOperator):
         project_path: str | Path,
         env: str,
         conf_source: str,
-        *args, **kwargs
+        *args,
+        **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.package_name = package_name
@@ -33,10 +33,13 @@ class KedroOperator(BaseOperator):
 
     def execute(self, context):
         configure_project(self.package_name)
-        with KedroSession.create(self.project_path, env=self.env, conf_source=self.conf_source) as session:
+        with KedroSession.create(
+            self.project_path, env=self.env, conf_source=self.conf_source
+        ) as session:
             if isinstance(self.node_name, str):
                 self.node_name = [self.node_name]
             session.run(self.pipeline_name, node_names=self.node_name)
+
 
 # Kedro settings required to run your pipeline
 env = "airflow"
@@ -49,7 +52,7 @@ conf_source = "" or Path.cwd() / "conf"
 # Using a DAG context manager, you don't have to specify the dag property of each task
 with DAG(
     dag_id="projet-etudes",
-    start_date=datetime(2023,1,1),
+    start_date=datetime(2023, 1, 1),
     max_active_runs=3,
     # https://airflow.apache.org/docs/stable/scheduler.html#dag-runs
     schedule_interval="@hourly",
@@ -61,8 +64,7 @@ with DAG(
         email_on_failure=False,
         email_on_retry=False,
         retries=1,
-        retry_delay=timedelta(minutes=5)
-    )
+        retry_delay=timedelta(minutes=5),
+    ),
 ) as dag:
-    tasks = {
-    }
+    tasks = {}
