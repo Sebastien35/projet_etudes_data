@@ -34,3 +34,4 @@ class SparkHooks:
             logger.info("[SparkHooks] SparkSession initialized.")
         except Exception as e:
             logger.info(f"[SparkHooks] Error initializing SparkSession: {e}")
+            return
