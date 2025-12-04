@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: [ main, dev ]
@@ -24,3 +23,4 @@ jobs:
       run: |
         make lint
     - name: pytest
+      run: make test  # Add this line (or pytest command)
