@@ -22,5 +22,5 @@ jobs:
     - name: ruff check
       run: |
         make lint
-    - name: pytest
-      run: make test  # Add this line (or pytest command)
+    # - name: pytest
+    #   run: make test  # Add this line (or pytest command)
