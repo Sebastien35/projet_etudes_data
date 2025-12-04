@@ -4,17 +4,17 @@ generated using Kedro 1.0.0
 """
 
 from kedro.pipeline import Node, Pipeline  # noqa
-from .nodes import get_client, fetch_from_trusted_sources, save_posts_to_db  # noqa
+from .nodes import get_client, fetch_from_keywords, save_posts_to_db  # noqa
 
 
 def create_pipeline(**kwargs) -> Pipeline:
     return Pipeline(
         [
             Node(
-                func=fetch_from_trusted_sources,
+                func=fetch_from_keywords,
                 inputs=None,
                 outputs="posts",
-                name="fetch_from_trusted_sources_node",
+                name="fetch_from_keywords_node",
             ),
             Node(
                 func=save_posts_to_db,

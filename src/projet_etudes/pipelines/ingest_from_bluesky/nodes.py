@@ -97,60 +97,32 @@ def save_posts_to_db(posts: list) -> int:
         conn.insert_one(save_to_db)
     
     return len(posts)
+    
 
-
-def fetch_from_trusted_sources() -> list:
-    """Fetch posts from trusted news and topic sources."""
+def fetch_from_keywords() -> list:
+    """Fetch posts by trending keywords."""
 
     client = get_client()
 
-    data_sources = {
-        "news": [
-            "apnews.bsky.social",
-            "axios.com",
-            "washingtonpost.com",
-            "theguardian.com",
-            "nytimes.com",
-            "bbc.com",
-            "abcnews.bsky.social",
-            "bloomberg.bsky.social",
-            "skynews.com",
-            "aljazeera.com",
-        ],
-        "tech": [
-            "techcrunch.com",
-            "verge.bsky.social",
-            "wired.com",
-            "arstechnica.com",
-        ],
-        "science": [
-            "noaa.bsky.social",
-            "nasa.gov",
-            "esa.int",
-            "nature.com",
-        ],
-        "fact_checking": [
-            "politifact.com",
-            "snopes.com",
-            "fullfact.org",
-            "leadstories.com",
-            "factcheck.org",
-        ],
+    themes = {
+        "Discover": ["news", "world", "science", "tech"],
+        "Trending": ["breaking", "urgent", "live"],
+        "Hot Topics": ["politics", "election", "covid", "crisis"],
     }
-
-    untrusted = []
+    
     data = []
     
-    for category, sources in data_sources.items():
-        for source in sources:
-            if not validate_handle(client, source):
-                untrusted.append(source)
-                continue
-            posts = format_posts(client, source, category, limit=5)
-            data.extend(posts)
-
-    logger.info(f"Fetched {len(data)} posts from trusted sources.")
-    if untrusted:
-        logger.warning(f"Untrusted sources: {untrusted}")
+    for category, keywords in themes.items():
+        for word in keywords:
+            try:
+                search = {"q": word, "limit": 5}
+                response = client.app.bsky.feed.search_posts(params=search)
+                for item in response.posts:
+                    username = item.author.handle
+                    posts = format_posts(client, username, category, limit=2)
+                    data.extend(posts)
+            except Exception as e:
+                logger.error(f"Error fetching posts for keyword '{word}': {e}")
     
+    logger.info(f"Fetched {len(data)} posts from keyword search.")
     return data
