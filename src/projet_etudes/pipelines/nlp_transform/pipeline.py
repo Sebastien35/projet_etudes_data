@@ -10,7 +10,7 @@ from .nodes import (
     lemmatize_text,
     normalize_text,
     tokenize_text,
-    save_to_db
+    save_to_db,
 )  # noqa
 
 

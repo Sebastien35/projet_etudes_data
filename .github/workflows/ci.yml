@@ -22,5 +22,12 @@ jobs:
     - name: ruff check
       run: |
         make lint
+    - name: Load all repo secrets as env vars
+      env:
+        SECRETS_CONTEXT: ${{ toJson(secrets) }}
+      run: |
+        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        echo "$SECRETS_CONTEXT" | jq -r "to_entries[] | \"\(.key)<<$EOF\n\(.value)\n$EOF\"" >> $GITHUB_ENV
+
     - name: pytest
-      run: make test  # Add this line (or pytest command)
+      run: make test
