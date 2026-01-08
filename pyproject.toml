@@ -25,7 +25,8 @@ dependencies = [
     "fastapi",
     "pydantic",
     "mysql-connector-python",
-    "spacy"
+    "spacy",
+    "pyspark"
 ]
 
 [project.scripts]

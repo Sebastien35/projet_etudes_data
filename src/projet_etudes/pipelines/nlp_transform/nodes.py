@@ -23,7 +23,8 @@ def get_posts_to_treat():
     posts_collection = mongo.use_collection("posts")
     cleaned_posts_collection = mongo.use_collection("cleaned_posts")
     cleaned_posts_ids = cleaned_posts_collection.distinct("unique_id")
-    return list(posts_collection.find({"unique_id": {"$nin": cleaned_posts_ids}}))
+    df = pd.DataFrame(list(posts_collection.find({"unique_id": {"$nin": cleaned_posts_ids}})))
+    return df
 
 def clean_text(df: pd.DataFrame) -> pd.DataFrame:
     
@@ -69,7 +70,8 @@ def tokenize_text(df: pd.DataFrame) -> pd.DataFrame:
     df["tokens"] = df["normalized_text"].apply(lambda x: x.split(" "))
     return df
 
-def lemmatize_text(df: pd.DataFrame, nlp) -> pd.DataFrame:
+def lemmatize_text(df: pd.DataFrame) -> pd.DataFrame:
+    nlp = spacy.load("en_core_web_sm")
     def _lemmatize(text: str) -> list[str]:
         doc = nlp(text)
         return [
@@ -82,25 +84,19 @@ def lemmatize_text(df: pd.DataFrame, nlp) -> pd.DataFrame:
     df["lemmas"] = df["normalized_text"].apply(_lemmatize)
     return df
 
-
-posts = get_posts_to_treat()
-
-if posts:
-    df_posts = pd.DataFrame(posts)
-    print("Initial Posts DataFrame:")
-    print(df_posts.head())
-
-    df_cleaned = clean_text(df_posts)
-    print("Cleaned Posts DataFrame:")
-    print(df_cleaned.head())
-    df_normalized = normalize_text(df_cleaned)
-    print("Normalized Posts DataFrame:")
-    print(df_normalized.head())
-    df_tokenized = tokenize_text(df_normalized)
-    print("Tokenized Posts DataFrame:")
-    print(df_tokenized.head())
-
-    nlp = spacy.load("en_core_web_sm")
-    df_lemmatized = lemmatize_text(df_tokenized, nlp)
-    print("Lemmatized Posts DataFrame:")
-    print(df_lemmatized.head())
+def save_to_db(df: pd.DataFrame) -> int:
+    cleaned_posts_collection = mongo.use_collection("cleaned_posts")
+    records = df.to_dict(orient="records")
+    for record in records:
+        save_to_db = {
+            "username": record["username"],
+            "created_at": record["created_at"],
+            "unique_id": record["unique_id"],
+            "utc_saved_at": pd.Timestamp.now(),
+            "category": record["category"],
+            "normalized_text": record["normalized_text"],
+            "tokens": record["tokens"],
+            "lemmas": record["lemmas"],
+        }
+        cleaned_posts_collection.insert_one(save_to_db)
+    return len(records)

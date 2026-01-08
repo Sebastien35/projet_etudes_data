@@ -419,7 +419,7 @@ preshed==3.0.12
     #   thinc
 prometheus-client==0.23.1
     # via jupyter-server
-prompt-toolkit==3.0.51
+prompt-toolkit
     # via
     #   commitizen
     #   ipython
@@ -432,6 +432,8 @@ ptyprocess==0.7.0
     #   terminado
 pure-eval==0.2.3
     # via stack-data
+py4j==0.10.9.9
+    # via pyspark
 pyarrow==22.0.0
     # via kedro-datasets
 pycparser==2.23
@@ -459,6 +461,8 @@ pyparsing==3.3.1
     # via matplotlib
 pyproject-hooks==1.2.0
     # via build
+pyspark==4.1.0
+    # via projet_etudes (pyproject.toml)
 pytest==7.4.4
     # via
     #   projet_etudes (pyproject.toml)

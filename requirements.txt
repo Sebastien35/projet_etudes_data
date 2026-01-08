@@ -393,6 +393,8 @@ ptyprocess==0.7.0
     #   terminado
 pure-eval==0.2.3
     # via stack-data
+py4j==0.10.9.9
+    # via pyspark
 pyarrow==22.0.0
     # via kedro-datasets
 pycparser==2.23
@@ -420,6 +422,8 @@ pyparsing==3.3.1
     # via matplotlib
 pyproject-hooks==1.2.0
     # via build
+pyspark==4.1.0
+    # via projet_etudes (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
     #   arrow

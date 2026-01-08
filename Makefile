@@ -57,3 +57,11 @@ logs:
 
 lint:
 	venv/bin/pre-commit run --all-files
+
+.PHONY: run1
+run1:
+	kedro run --pipeline=ingest_from_bluesky
+
+.PHONY: run2
+run2:
+	kedro run --pipeline=nlp_transform
