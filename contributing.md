@@ -15,4 +15,4 @@ make install-all
 ```
 make requirements-all
 ```
-to register new dependencies.
+to register new dependencies. then you will probably need to remove the version number for prompt-toolkit in requirements.txt

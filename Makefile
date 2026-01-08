@@ -65,3 +65,7 @@ run1:
 .PHONY: run2
 run2:
 	kedro run --pipeline=nlp_transform
+
+.PHONY: run3
+run3:
+	kedro run --pipeline=vectorisation

@@ -26,7 +26,8 @@ dependencies = [
     "pydantic",
     "mysql-connector-python",
     "spacy",
-    "pyspark"
+    "pyspark",
+    "scikit-learn"
 ]
 
 [project.scripts]
