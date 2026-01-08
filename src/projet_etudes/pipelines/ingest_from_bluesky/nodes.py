@@ -44,7 +44,7 @@ def validate_handle(client: Client, username: str) -> bool:
 def format_posts(client: Client, username: str, category: str, limit: int = 10) -> list:
     """
     Fetch posts from a Bluesky user and return formatted post objects.
-    
+
     Returns list of dicts containing:
     - username
     - text
@@ -62,7 +62,7 @@ def format_posts(client: Client, username: str, category: str, limit: int = 10) 
         unique_id = f"{username}_{item.post.record.created_at}"
         if unique_id in existing_posts:
             continue
-        
+
         post = item.post
         record = post.record
 
@@ -95,9 +95,9 @@ def save_posts_to_db(posts: list) -> int:
         }
         conn = mongo.use_collection("posts")
         conn.insert_one(save_to_db)
-    
+
     return len(posts)
-    
+
 
 def fetch_from_keywords() -> list:
     """Fetch posts by trending keywords."""
@@ -109,9 +109,9 @@ def fetch_from_keywords() -> list:
         "Trending": ["breaking", "urgent", "live"],
         "Hot Topics": ["politics", "election", "covid", "crisis"],
     }
-    
+
     data = []
-    
+
     for category, keywords in themes.items():
         for word in keywords:
             try:
@@ -123,6 +123,6 @@ def fetch_from_keywords() -> list:
                     data.extend(posts)
             except Exception as e:
                 logger.error(f"Error fetching posts for keyword '{word}': {e}")
-    
+
     logger.info(f"Fetched {len(data)} posts from keyword search.")
     return data

@@ -24,7 +24,9 @@ dependencies = [
     "kedro-airflow",
     "fastapi",
     "pydantic",
-    "mysql-connector-python"
+    "mysql-connector-python",
+    "spacy",
+    "pyspark"
 ]
 
 [project.scripts]
