@@ -27,7 +27,8 @@ dependencies = [
     "mysql-connector-python",
     "spacy",
     "pyspark",
-    "scikit-learn"
+    "scikit-learn",
+    "streamlit"
 ]
 
 [project.scripts]
