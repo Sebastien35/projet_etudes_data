@@ -30,4 +30,4 @@ jobs:
         echo "$SECRETS_CONTEXT" | jq -r "to_entries[] | \"\(.key)<<$EOF\n\(.value)\n$EOF\"" >> $GITHUB_ENV
 
     - name: pytest
-      run: pytest
+      run: venv/bin/pytest
