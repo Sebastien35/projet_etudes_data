@@ -87,15 +87,20 @@ posts = get_posts_to_treat()
 
 if posts:
     df_posts = pd.DataFrame(posts)
+    print("Initial Posts DataFrame:")
     print(df_posts.head())
 
     df_cleaned = clean_text(df_posts)
+    print("Cleaned Posts DataFrame:")
     print(df_cleaned.head())
     df_normalized = normalize_text(df_cleaned)
+    print("Normalized Posts DataFrame:")
     print(df_normalized.head())
     df_tokenized = tokenize_text(df_normalized)
+    print("Tokenized Posts DataFrame:")
     print(df_tokenized.head())
 
     nlp = spacy.load("en_core_web_sm")
     df_lemmatized = lemmatize_text(df_tokenized, nlp)
+    print("Lemmatized Posts DataFrame:")
     print(df_lemmatized.head())

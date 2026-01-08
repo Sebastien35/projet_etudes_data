@@ -28,6 +28,7 @@ install-all:
 	rm -rf venv
 	python3 -m venv venv
 	venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt
+	venv/bin/python -m spacy download en_core_web_sm
 
 
 .PHONY: build db airflow-init up down logs
