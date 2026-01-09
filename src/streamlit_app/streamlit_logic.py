@@ -77,16 +77,16 @@ def get_posts():
 # Top publicateurs par categrorie
 def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
     df = df.copy()
-    
+
     # Group by category and username, count posts
     grouped = df.groupby(['category', 'username']).size().reset_index(name='post_count')
-    
+
     # Sort by category and post_count descending
     grouped = grouped.sort_values(['category', 'post_count'], ascending=[True, False])
-    
+
     # Take top_k per category
     top_users = grouped.groupby('category').head(top_k).reset_index(drop=True)
-    
+
     return top_users
 
 

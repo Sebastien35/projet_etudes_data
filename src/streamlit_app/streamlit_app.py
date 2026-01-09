@@ -124,7 +124,7 @@ if main_section == "Graphes":
 # =====================================================
 # Logic functions
 # =====================================================
-    
+
 df_posts = get_posts()
 
 df_category = top_users_per_category(df_posts)
@@ -197,12 +197,12 @@ elif main_section == "Graphes":
                 color=alt.Color(field="username", type="nominal"),
                 tooltip=['username', 'post_count']
             )
-            
+
             # Place chart in left or right column
             col = cols[i % 2]
             col.subheader(f"Categorie: {category}")
             col.altair_chart(pie_chart, use_container_width=True)
-            
+
             # Create a new row after 2 charts
             if i % 2 == 1:
                 cols = st.columns(2)
@@ -253,7 +253,7 @@ elif main_section == "Graphes":
 
 
     # -------- Posts over time --------
-    elif graph_type == "Nombre de posts (heure / jour)":
+    elif graph_type == "Nombre de posts par heure":
         st.subheader("Nombre de posts par heure")
         chart = (
             alt.Chart(df_hour)
