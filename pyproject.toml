@@ -28,7 +28,8 @@ dependencies = [
     "spacy",
     "pyspark",
     "scikit-learn",
-    "google-generativeai"
+    "google-genai",
+    "streamlit"
 ]
 
 [project.scripts]

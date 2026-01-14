@@ -3,18 +3,19 @@ from google import genai
 from dotenv import load_dotenv
 import os
 from shared.rag import Rag
+import json
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('shared.gemini_service')
 
 load_dotenv()
 
 
 def is_context_sufficient(context_chunks, min_chars=300):
-    """
-    Simple heuristic to decide if RAG context is meaningful.
-    """
     if not context_chunks:
         return False
-    total_chars = sum(len(c) for c in context_chunks)
-    return total_chars >= min_chars
+    return sum(len(c) for c in context_chunks) >= min_chars
 
 
 class GeminiService(LLMInterface):
@@ -28,58 +29,84 @@ class GeminiService(LLMInterface):
     # PROMPTS
     # -----------------------
 
-    def build_strict_rag_prompt(self, question, context_chunks):
+    def build_factcheck_rag_prompt(self, claim, context_chunks):
         context = "\n\n".join(f"- {chunk}" for chunk in context_chunks)
 
         return f"""
-You are an assistant that answers questions using ONLY the provided context.
-Do NOT use outside knowledge.
-If the answer is not explicitly present in the context, reply exactly:
+You are a professional fact-checker.
 
-"I don't know based on the provided data."
+Evaluate the following CLAIM using ONLY the CONTEXT below.
+Do not use outside knowledge.
+
+If the context does not provide enough evidence, mark the verdict as "uncertain".
+
+Return your answer STRICTLY as valid JSON with this schema:
+{{
+  "verdict": one of ["true", "very likely true", "uncertain", "very likely false", "false"],
+  "probability": number between 0 and 1,
+  "explanation": short factual justification,
+  "based_on": "rag"
+}}
 
 Context:
 {context}
 
-Question:
-{question}
+CLAIM:
+{claim}
 
-Answer:
+JSON:
 """
 
-    def build_fallback_prompt(self, question):
+    def build_factcheck_fallback_prompt(self, claim):
         return f"""
-The internal data source was not sufficient to answer the question.
-Answer using general knowledge from reliable news sources.
-Be factual, cautious, and avoid speculation.
+You are a professional fact-checker.
 
-Question:
-{question}
+The internal dataset was insufficient.
+Evaluate the following CLAIM using general, widely accepted information.
+Be cautious and conservative in your judgment.
 
-Answer:
+Return your answer STRICTLY as valid JSON with this schema:
+{{
+  "verdict": one of ["true", "very likely true", "uncertain", "very likely false", "false"],
+  "probability": number between 0 and 1,
+  "explanation": short factual justification,
+  "based_on": "general_knowledge"
+}}
+
+CLAIM:
+{claim}
+
+JSON:
 """
 
     # -----------------------
     # MAIN ENTRY POINT
     # -----------------------
 
-    def send_message(self, question: str) -> str:
-        # 1️⃣ Retrieve RAG context
+    def send_message(self, claim: str) -> dict:
         context_chunks = self.rag.retrieve_context(
-            question,
+            claim,
             top_k_docs=5
         )
 
-        # 2️⃣ Decide which mode to use
         if is_context_sufficient(context_chunks):
-            prompt = self.build_strict_rag_prompt(question, context_chunks)
+            prompt = self.build_factcheck_rag_prompt(claim, context_chunks)
         else:
-            prompt = self.build_fallback_prompt(question)
+            prompt = self.build_factcheck_fallback_prompt(claim)
 
-        # 3️⃣ Call Gemini
         response = self.client.models.generate_content(
             model=self.model,
             contents=prompt
         )
 
-        return response.text
+        # Ensure valid JSON output
+        try:
+            logger.info(f"LLM response: {response.text}")
+            return json.loads(response.text)
+        except json.JSONDecodeError:
+            return {
+                "verdict": "uncertain",
+                "probability": 0.0,
+                "explanation": "Model returned invalid output.",
+                "based_on": "error"
+            }
