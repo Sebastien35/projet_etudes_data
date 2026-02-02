@@ -17,16 +17,14 @@ class QuestionRequest(BaseModel):
     question: str
 
 @app.post("/ask")
-def ask(request: QuestionRequest):
+async def ask(request: QuestionRequest):
     answer = llm_service.send_message(request.question)
-    logger.info(f"LLM answer: {answer}")
     return answer
 
 
 @app.route("/health", methods=["GET"])
 def health():
     return "OK"
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

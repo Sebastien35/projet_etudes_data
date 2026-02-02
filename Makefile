@@ -77,3 +77,10 @@ web:
 .PHONY: api
 api:
 	uvicorn src.api.api:app --reload --port 8080
+
+.PHONY: quickstart
+quickstart: install-all run3 web api
+
+.PHONY: startapp
+startapp:
+	web api

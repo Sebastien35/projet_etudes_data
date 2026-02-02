@@ -1,8 +1,6 @@
 services:
   airflow-webserver:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: apache/airflow:2.5.1
     container_name: airflow-webserver
     restart: always
     environment:
@@ -58,3 +56,19 @@ services:
       MYSQL_ROOT_PASSWORD: sqlpass
     ports:
       - "8084:80"
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api
+    restart: always
+    depends_on:
+      - airflow-webserver
+      - database
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://projet_user:projet_pass@database:3306/projet_etudes_db
+      

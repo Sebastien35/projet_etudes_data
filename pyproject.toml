@@ -12,7 +12,7 @@ dependencies = [
     "jupyterlab>=3.0",
     "notebook",
     "kedro[jupyter]~=1.0.0",
-    "kedro-datasets[pandas-csvdataset, pandas-exceldataset, pandas-parquetdataset, spark-sparkdataset, plotly-plotlydataset, plotly-jsondataset, matplotlib-matplotlibwriter]>=3.0",
+    "kedro-datasets[pandas-csvdataset, pandas-exceldataset]",
     "kedro-viz>=6.7.0",
     "scikit-learn~=1.5.1",
     "seaborn~=0.12.1",
@@ -29,7 +29,8 @@ dependencies = [
     "pyspark",
     "scikit-learn",
     "google-genai",
-    "streamlit"
+    "streamlit",
+    "prompt-toolkit==3.0.51"
 ]
 
 [project.scripts]

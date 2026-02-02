@@ -35,7 +35,7 @@ arrow==1.4.0
     #   isoduration
 asttokens==3.0.1
     # via stack-data
-async-lru==2.0.5
+async-lru==2.1.0
     # via jupyterlab
 atproto==0.0.63
     # via projet_etudes (pyproject.toml)
@@ -105,7 +105,7 @@ comm==0.2.3
     # via
     #   ipykernel
     #   ipywidgets
-commitizen==4.11.3
+commitizen==4.12.0
     # via projet_etudes (pyproject.toml)
 confection==0.1.5
     # via
@@ -181,7 +181,7 @@ gitpython==3.1.46
     #   streamlit
 google-auth==2.47.0
     # via google-genai
-google-genai==1.57.0
+google-genai==1.59.0
     # via projet_etudes (pyproject.toml)
 h11==0.16.0
     # via
@@ -342,7 +342,9 @@ murmurhash==1.0.15
 mysql-connector-python==9.5.0
     # via projet_etudes (pyproject.toml)
 narwhals==2.15.0
-    # via altair
+    # via
+    #   altair
+    #   plotly
 nbclient==0.10.4
     # via nbconvert
 nbconvert==7.16.6
@@ -432,10 +434,8 @@ platformdirs==4.5.1
     # via
     #   jupyter-core
     #   virtualenv
-plotly==5.24.1
-    # via
-    #   kedro-datasets
-    #   kedro-viz
+plotly==6.5.2
+    # via kedro-viz
 pluggy==1.6.0
     # via
     #   kedro
@@ -452,6 +452,7 @@ prompt-toolkit==3.0.51
     # via
     #   commitizen
     #   ipython
+    #   projet_etudes (pyproject.toml)
     #   questionary
 protobuf==6.33.4
     # via streamlit
@@ -465,11 +466,9 @@ pure-eval==0.2.3
     # via stack-data
 py4j==0.10.9.9
     # via pyspark
-pyarrow==22.0.0
-    # via
-    #   kedro-datasets
-    #   streamlit
-pyasn1==0.6.1
+pyarrow==23.0.0
+    # via streamlit
+pyasn1==0.6.2
     # via
     #   pyasn1-modules
     #   rsa
@@ -607,7 +606,7 @@ smmap==5.0.2
     # via gitdb
 sniffio==1.3.1
     # via google-genai
-soupsieve==2.8.1
+soupsieve==2.8.2
     # via beautifulsoup4
 spacy==3.8.11
     # via projet_etudes (pyproject.toml)
@@ -625,12 +624,11 @@ stack-data==0.6.3
     # via ipython
 starlette==0.50.0
     # via fastapi
-streamlit==1.52.2
+streamlit==1.53.0
     # via projet_etudes (pyproject.toml)
 tenacity==9.1.2
     # via
     #   google-genai
-    #   plotly
     #   streamlit
 termcolor==3.3.0
     # via commitizen
