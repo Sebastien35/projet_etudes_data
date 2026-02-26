@@ -54,7 +54,7 @@ Context:
 CLAIM:
 {claim}
 
-JSON:
+now answer the question in JSON:
 """
 
     def build_factcheck_fallback_prompt(self, claim):

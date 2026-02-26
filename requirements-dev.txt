@@ -123,6 +123,10 @@ cryptography==45.0.7
     # via
     #   atproto
     #   google-auth
+cuda-bindings==12.9.4
+    # via torch
+cuda-pathfinder==1.4.0
+    # via cuda-bindings
 cycler==0.12.1
     # via matplotlib
 cymem==2.0.13
@@ -169,7 +173,9 @@ fastjsonschema==2.21.2
     # via nbformat
 filelock==3.24.3
     # via
+    #   huggingface-hub
     #   python-discovery
+    #   torch
     #   virtualenv
 fonttools==4.61.1
     # via matplotlib
@@ -177,8 +183,10 @@ fqdn==1.5.1
     # via jsonschema
 fsspec==2026.2.0
     # via
+    #   huggingface-hub
     #   kedro
     #   kedro-viz
+    #   torch
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.46
@@ -193,6 +201,8 @@ h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+hf-xet==1.3.1
+    # via huggingface-hub
 httpcore==1.0.9
     # via httpx
 httptools==0.7.1
@@ -201,7 +211,12 @@ httpx==0.28.1
     # via
     #   atproto
     #   google-genai
+    #   huggingface-hub
     #   jupyterlab
+huggingface-hub==1.4.1
+    # via
+    #   tokenizers
+    #   transformers
 identify==2.6.16
     # via pre-commit
 idna==3.11
@@ -243,6 +258,7 @@ jinja2==3.1.6
     #   nbconvert
     #   pydeck
     #   spacy
+    #   torch
 joblib==1.5.3
     # via scikit-learn
 json5==0.13.0
@@ -340,6 +356,8 @@ mistune==3.2.0
     # via nbconvert
 more-itertools==10.8.0
     # via kedro
+mpmath==1.3.0
+    # via sympy
 murmurhash==1.0.15
     # via
     #   preshed
@@ -363,7 +381,9 @@ nbformat==5.10.4
 nest-asyncio==1.6.0
     # via ipykernel
 networkx==3.4.2
-    # via kedro-viz
+    # via
+    #   kedro-viz
+    #   torch
 nodeenv==1.10.0
     # via pre-commit
 notebook==7.5.4
@@ -387,6 +407,46 @@ numpy==2.2.6
     #   spacy
     #   streamlit
     #   thinc
+    #   transformers
+nvidia-cublas-cu12==12.8.4.1
+    # via
+    #   nvidia-cudnn-cu12
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cuda-cupti-cu12==12.8.90
+    # via torch
+nvidia-cuda-nvrtc-cu12==12.8.93
+    # via torch
+nvidia-cuda-runtime-cu12==12.8.90
+    # via torch
+nvidia-cudnn-cu12==9.10.2.21
+    # via torch
+nvidia-cufft-cu12==11.3.3.83
+    # via torch
+nvidia-cufile-cu12==1.13.1.3
+    # via torch
+nvidia-curand-cu12==10.3.9.90
+    # via torch
+nvidia-cusolver-cu12==11.7.3.90
+    # via torch
+nvidia-cusparse-cu12==12.5.8.93
+    # via
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cusparselt-cu12==0.7.1
+    # via torch
+nvidia-nccl-cu12==2.27.5
+    # via torch
+nvidia-nvjitlink-cu12==12.8.93
+    # via
+    #   nvidia-cufft-cu12
+    #   nvidia-cusolver-cu12
+    #   nvidia-cusparse-cu12
+    #   torch
+nvidia-nvshmem-cu12==3.4.5
+    # via torch
+nvidia-nvtx-cu12==12.8.90
+    # via torch
 omegaconf==2.3.0
     # via kedro
 openpyxl==3.1.5
@@ -400,6 +460,7 @@ packaging==26.0
     #   altair
     #   build
     #   commitizen
+    #   huggingface-hub
     #   ipykernel
     #   jupyter-events
     #   jupyter-server
@@ -414,6 +475,7 @@ packaging==26.0
     #   spacy
     #   streamlit
     #   thinc
+    #   transformers
     #   weasel
 pandas==2.3.3
     # via
@@ -530,7 +592,7 @@ python-dateutil==2.9.0.post0
     #   jupyter-client
     #   matplotlib
     #   pandas
-python-discovery==1.0.0
+python-discovery==1.1.0
     # via virtualenv
 python-dotenv==1.2.1
     # via
@@ -548,10 +610,12 @@ pyyaml==6.0.3
     # via
     #   commitizen
     #   cookiecutter
+    #   huggingface-hub
     #   jupyter-events
     #   kedro
     #   omegaconf
     #   pre-commit
+    #   transformers
     #   uvicorn
 pyzmq==27.1.0
     # via
@@ -565,6 +629,8 @@ referencing==0.37.0
     #   jsonschema
     #   jsonschema-specifications
     #   jupyter-events
+regex==2026.2.19
+    # via transformers
 requests==2.32.5
     # via
     #   cookiecutter
@@ -598,6 +664,8 @@ rsa==4.9.1
     # via google-auth
 ruff==0.12.12
     # via projet_etudes (pyproject.toml)
+safetensors==0.7.0
+    # via transformers
 scikit-learn==1.5.2
     # via projet_etudes (pyproject.toml)
 scipy==1.15.3
@@ -611,7 +679,9 @@ semver==3.0.4
 send2trash==2.1.0
     # via jupyter-server
 shellingham==1.5.4
-    # via typer
+    # via
+    #   huggingface-hub
+    #   typer
 six==1.17.0
     # via
     #   python-dateutil
@@ -644,6 +714,8 @@ starlette==0.52.1
     #   prometheus-fastapi-instrumentator
 streamlit==1.54.0
     # via projet_etudes (pyproject.toml)
+sympy==1.14.0
+    # via torch
 tenacity==9.1.4
     # via
     #   google-genai
@@ -662,6 +734,8 @@ threadpoolctl==3.6.0
     # via scikit-learn
 tinycss2==1.4.0
     # via bleach
+tokenizers==0.22.2
+    # via transformers
 toml==0.10.2
     # via
     #   kedro
@@ -677,6 +751,8 @@ tomli-w==1.2.0
     # via kedro-telemetry
 tomlkit==0.14.0
     # via commitizen
+torch==2.10.0
+    # via projet_etudes (pyproject.toml)
 tornado==6.5.4
     # via
     #   ipykernel
@@ -687,7 +763,10 @@ tornado==6.5.4
     #   streamlit
     #   terminado
 tqdm==4.67.3
-    # via spacy
+    # via
+    #   huggingface-hub
+    #   spacy
+    #   transformers
 traitlets==5.14.3
     # via
     #   ipykernel
@@ -702,11 +781,17 @@ traitlets==5.14.3
     #   nbclient
     #   nbconvert
     #   nbformat
+transformers==5.2.0
+    # via projet_etudes (pyproject.toml)
+triton==3.6.0
+    # via torch
 typer==0.23.1
     # via typer-slim
 typer-slim==0.23.1
     # via
+    #   huggingface-hub
     #   spacy
+    #   transformers
     #   weasel
 typing-extensions==4.15.0
     # via
@@ -720,6 +805,7 @@ typing-extensions==4.15.0
     #   exceptiongroup
     #   fastapi
     #   google-genai
+    #   huggingface-hub
     #   ipython
     #   kedro
     #   mistune
@@ -728,6 +814,7 @@ typing-extensions==4.15.0
     #   referencing
     #   starlette
     #   streamlit
+    #   torch
     #   typing-inspection
     #   uvicorn
     #   virtualenv

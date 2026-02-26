@@ -32,6 +32,8 @@ dependencies = [
     "streamlit",
     "prompt-toolkit==3.0.51",
     "prometheus-fastapi-instrumentator",
+    "transformers",
+    "torch",
 ]
 
 [project.scripts]

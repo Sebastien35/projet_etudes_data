@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../../../..")
 
 
 class Rag:
-    def __init__(self, filepath="data/06-models/rag_vectors.joblib"):  # pylint: disable=too-few-public-methods
+    def __init__(self, filepath="data/06_models/rag_vectors.joblib"):  # pylint: disable=too-few-public-methods
         data = joblib.load(filepath)
 
         self.vectorizer = data["vectorizer"]  # fitted TF‑IDF

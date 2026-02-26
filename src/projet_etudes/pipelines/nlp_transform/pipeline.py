@@ -10,6 +10,7 @@ from .nodes import (
     lemmatize_text,
     normalize_text,
     tokenize_text,
+    classify_emotion,
     save_to_db,
 )  # noqa
 
@@ -48,8 +49,14 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="lemmatize_text_node",
             ),
             Node(
-                func=save_to_db,
+                func=classify_emotion,
                 inputs="lemmatized_posts",
+                outputs="classified_posts",
+                name="classify_emotion_node",
+            ),
+            Node(
+                func=save_to_db,
+                inputs="classified_posts",
                 outputs=None,
                 name="save_to_db_node",
             ),

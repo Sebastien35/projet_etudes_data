@@ -1,50 +1,26 @@
-"""
-This is a boilerplate pipeline 'vectorisation'
-generated using Kedro 1.0.0
-"""
-
-from kedro.pipeline import Node, Pipeline  # noqa
+from kedro.pipeline import node, pipeline
 from .nodes import (
     get_cleaned_posts,
-    vectorise,
+    vectorize_docs,
     clusterize,
-    save_rag_pkl,
+    save_clusters_to_mongo,
     save_rag_joblib,
+    save_vectorized_posts,
 )
 
 
-def create_pipeline(**kwargs) -> Pipeline:
-    return Pipeline(
+def create_pipeline(**kwargs):
+    return pipeline(
         [
-            Node(
-                func=get_cleaned_posts,
-                inputs=None,
-                outputs="primary_cleaned_posts",  # Unique name
-                name="get_cleaned_posts_from_mongo",
-            ),
-            Node(
-                func=vectorise,
-                inputs="primary_cleaned_posts",  # Match input
-                outputs="tfidf_matrix",
-                name="vectorise",
-            ),
-            Node(
-                func=clusterize,
-                inputs="tfidf_matrix",
-                outputs="clusters",
-                name="clusterize",
-            ),
-            Node(
-                func=save_rag_pkl,
-                inputs=["clusters", "tfidf_matrix", "primary_cleaned_posts"],
-                outputs="rag_vectors_jsonl",  # Catalog entry
-                name="save_rag_json",
-            ),
-            Node(
-                func=save_rag_joblib,
-                inputs=["clusters", "tfidf_matrix", "primary_cleaned_posts"],
-                outputs="rag_vectors_joblib",  # Catalog entry
-                name="save_rag_joblib",
-            ),
+            node(get_cleaned_posts, None, ["docs", "posts_"]),
+            node(vectorize_docs, "docs", ["tfidf_df", "vectorizer"]),  # Both outputs
+            node(clusterize, "tfidf_df", "clusters"),
+            node(save_clusters_to_mongo, ["posts_", "clusters"], None),  # Uses posts
+            node(save_rag_joblib, ["docs", "tfidf_df", "clusters", "vectorizer"], None),
+            node(save_vectorized_posts, ["posts_", "tfidf_df", "clusters"], None),
         ]
     )
+
+
+def register_pipelines():
+    return {"vectorize_cluster": create_pipeline()}

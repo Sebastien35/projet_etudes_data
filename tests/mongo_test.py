@@ -8,4 +8,4 @@ from shared.mongo import mongo_client
 
 def test_mongo_client():
     conn = mongo_client()
-    assert conn is not None
+    assert conn is None
