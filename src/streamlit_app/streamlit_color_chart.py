@@ -42,7 +42,7 @@ class ColorChart:
 
     @classmethod
     def get_success_color(cls) -> str:
-        return cls.SUCCESS_COLOR
+        return cls.YELLOW
 
     @classmethod
     def get_warning_color(cls) -> str:

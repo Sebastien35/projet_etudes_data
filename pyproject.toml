@@ -30,7 +30,8 @@ dependencies = [
     "scikit-learn",
     "google-genai",
     "streamlit",
-    "prompt-toolkit==3.0.51"
+    "prompt-toolkit==3.0.51",
+    "prometheus-fastapi-instrumentator",
 ]
 
 [project.scripts]

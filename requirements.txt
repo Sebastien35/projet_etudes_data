@@ -9,7 +9,9 @@ aiofiles==25.1.0
 altair==6.0.0
     # via streamlit
 annotated-doc==0.0.4
-    # via fastapi
+    # via
+    #   fastapi
+    #   typer
 annotated-types==0.7.0
     # via pydantic
 antlr4-python3-runtime==4.9.3
@@ -33,7 +35,7 @@ arrow==1.4.0
     #   isoduration
 asttokens==3.0.1
     # via stack-data
-async-lru==2.1.0
+async-lru==2.2.0
     # via jupyterlab
 atproto==0.0.63
     # via projet_etudes (pyproject.toml)
@@ -42,7 +44,7 @@ attrs==25.4.0
     #   jsonschema
     #   kedro
     #   referencing
-babel==2.17.0
+babel==2.18.0
     # via jupyterlab-server
 backports-strenum==1.3.1
     # via kedro-datasets
@@ -58,7 +60,7 @@ blis==1.3.3
     # via thinc
 build==1.4.0
     # via kedro
-cachetools==6.2.4
+cachetools==6.2.6
     # via
     #   kedro
     #   streamlit
@@ -67,7 +69,7 @@ catalogue==2.0.10
     #   spacy
     #   srsly
     #   thinc
-certifi==2026.1.4
+certifi==2026.2.25
     # via
     #   httpcore
     #   httpx
@@ -76,7 +78,7 @@ cffi==2.0.0
     # via
     #   argon2-cffi-bindings
     #   cryptography
-chardet==5.2.0
+chardet==6.0.0.post1
     # via binaryornot
 charset-normalizer==3.4.4
     # via requests
@@ -87,7 +89,7 @@ click==8.1.8
     #   cookiecutter
     #   kedro
     #   streamlit
-    #   typer-slim
+    #   typer
     #   uvicorn
 click-default-group==1.2.4
     # via kedro-viz
@@ -106,7 +108,9 @@ contourpy==1.3.2
 cookiecutter==2.6.0
     # via kedro
 cryptography==45.0.7
-    # via atproto
+    # via
+    #   atproto
+    #   google-auth
 cycler==0.12.1
     # via matplotlib
 cymem==2.0.13
@@ -114,7 +118,7 @@ cymem==2.0.13
     #   preshed
     #   spacy
     #   thinc
-debugpy==1.8.19
+debugpy==1.8.20
     # via ipykernel
 decorator==5.2.1
     # via ipython
@@ -138,7 +142,7 @@ exceptiongroup==1.3.1
     #   ipython
 executing==2.2.1
     # via stack-data
-fastapi==0.128.0
+fastapi==0.133.1
     # via
     #   kedro-viz
     #   projet_etudes (pyproject.toml)
@@ -148,7 +152,7 @@ fonttools==4.61.1
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
-fsspec==2026.1.0
+fsspec==2026.2.0
     # via
     #   kedro
     #   kedro-viz
@@ -158,9 +162,9 @@ gitpython==3.1.46
     # via
     #   kedro
     #   streamlit
-google-auth==2.47.0
+google-auth==2.48.0
     # via google-genai
-google-genai==1.59.0
+google-genai==1.65.0
     # via projet_etudes (pyproject.toml)
 h11==0.16.0
     # via
@@ -185,7 +189,7 @@ importlib-metadata==8.7.1
     # via kedro
 importlib-resources==6.5.2
     # via kedro
-ipykernel==7.1.0
+ipykernel==7.2.0
     # via jupyterlab
 ipylab==1.1.0
     # via kedro
@@ -252,7 +256,7 @@ jupyter-server==2.17.0
     #   notebook-shim
 jupyter-server-terminals==0.5.4
     # via jupyter-server
-jupyterlab==4.5.2
+jupyterlab==4.5.5
     # via
     #   notebook
     #   projet_etudes (pyproject.toml)
@@ -273,7 +277,7 @@ kedro==1.0.0
     #   projet_etudes (pyproject.toml)
 kedro-airflow==0.10.0
     # via projet_etudes (pyproject.toml)
-kedro-datasets==9.1.1
+kedro-datasets==9.2.0
     # via projet_etudes (pyproject.toml)
 kedro-telemetry==0.7.0
     # via
@@ -313,15 +317,15 @@ murmurhash==1.0.15
     #   preshed
     #   spacy
     #   thinc
-mysql-connector-python==9.5.0
+mysql-connector-python==9.6.0
     # via projet_etudes (pyproject.toml)
-narwhals==2.15.0
+narwhals==2.17.0
     # via
     #   altair
     #   plotly
 nbclient==0.10.4
     # via nbconvert
-nbconvert==7.16.6
+nbconvert==7.17.0
     # via jupyter-server
 nbformat==5.10.4
     # via
@@ -332,7 +336,7 @@ nest-asyncio==1.6.0
     # via ipykernel
 networkx==3.4.2
     # via kedro-viz
-notebook==7.5.2
+notebook==7.5.4
     # via
     #   kedro
     #   projet_etudes (pyproject.toml)
@@ -357,11 +361,11 @@ omegaconf==2.3.0
     # via kedro
 openpyxl==3.1.5
     # via kedro-datasets
-orjson==3.11.5
+orjson==3.11.7
     # via kedro-viz
 overrides==7.7.0
     # via jupyter-server
-packaging==25.0
+packaging==26.0
     # via
     #   altair
     #   build
@@ -388,19 +392,19 @@ pandas==2.3.3
     #   streamlit
 pandocfilters==1.5.1
     # via nbconvert
-parse==1.20.2
+parse==1.21.1
     # via kedro
-parso==0.8.5
+parso==0.8.6
     # via jedi
-pathspec==1.0.3
+pathspec==1.0.4
     # via kedro-viz
 pexpect==4.9.0
     # via ipython
-pillow==12.1.0
+pillow==12.1.1
     # via
     #   matplotlib
     #   streamlit
-platformdirs==4.5.1
+platformdirs==4.9.2
     # via jupyter-core
 plotly==6.5.2
     # via kedro-viz
@@ -411,14 +415,18 @@ preshed==3.0.12
     #   spacy
     #   thinc
 prometheus-client==0.24.1
-    # via jupyter-server
+    # via
+    #   jupyter-server
+    #   prometheus-fastapi-instrumentator
+prometheus-fastapi-instrumentator==7.1.0
+    # via projet_etudes (pyproject.toml)
 prompt-toolkit==3.0.51
     # via
     #   ipython
     #   projet_etudes (pyproject.toml)
-protobuf==6.33.4
+protobuf==6.33.5
     # via streamlit
-psutil==7.2.1
+psutil==7.2.2
     # via ipykernel
 ptyprocess==0.7.0
     # via
@@ -428,7 +436,7 @@ pure-eval==0.2.3
     # via stack-data
 py4j==0.10.9.9
     # via pyspark
-pyarrow==23.0.0
+pyarrow==23.0.1
     # via streamlit
 pyasn1==0.6.2
     # via
@@ -436,7 +444,7 @@ pyasn1==0.6.2
     #   rsa
 pyasn1-modules==0.4.2
     # via google-auth
-pycparser==2.23
+pycparser==3.0
     # via cffi
 pydantic==2.12.5
     # via
@@ -460,7 +468,7 @@ pygments==2.19.2
     #   rich
 pymongo==4.16.0
     # via projet_etudes (pyproject.toml)
-pyparsing==3.3.1
+pyparsing==3.3.2
     # via matplotlib
 pyproject-hooks==1.2.0
     # via build
@@ -521,10 +529,11 @@ rfc3986-validator==0.1.1
     #   jupyter-events
 rfc3987-syntax==1.1.0
     # via jsonschema
-rich==14.2.0
+rich==14.3.3
     # via
     #   cookiecutter
     #   kedro
+    #   typer
 rpds-py==0.30.0
     # via
     #   jsonschema
@@ -543,17 +552,19 @@ semver==3.0.4
     # via kedro-airflow
 send2trash==2.1.0
     # via jupyter-server
+shellingham==1.5.4
+    # via typer
 six==1.17.0
     # via
     #   python-dateutil
     #   rfc3339-validator
-smart-open==7.5.0
+smart-open==7.5.1
     # via weasel
 smmap==5.0.2
     # via gitdb
 sniffio==1.3.1
     # via google-genai
-soupsieve==2.8.2
+soupsieve==2.8.3
     # via beautifulsoup4
 spacy==3.8.11
     # via projet_etudes (pyproject.toml)
@@ -569,11 +580,13 @@ srsly==2.5.2
     #   weasel
 stack-data==0.6.3
     # via ipython
-starlette==0.50.0
-    # via fastapi
-streamlit==1.53.0
+starlette==0.52.1
+    # via
+    #   fastapi
+    #   prometheus-fastapi-instrumentator
+streamlit==1.54.0
     # via projet_etudes (pyproject.toml)
-tenacity==9.1.2
+tenacity==9.1.4
     # via
     #   google-genai
     #   streamlit
@@ -609,7 +622,7 @@ tornado==6.5.4
     #   notebook
     #   streamlit
     #   terminado
-tqdm==4.67.1
+tqdm==4.67.3
     # via spacy
 traitlets==5.14.3
     # via
@@ -625,7 +638,9 @@ traitlets==5.14.3
     #   nbclient
     #   nbconvert
     #   nbformat
-typer-slim==0.21.1
+typer==0.23.1
+    # via typer-slim
+typer-slim==0.23.1
     # via
     #   spacy
     #   weasel
@@ -648,11 +663,12 @@ typing-extensions==4.15.0
     #   referencing
     #   starlette
     #   streamlit
-    #   typer-slim
     #   typing-inspection
     #   uvicorn
 typing-inspection==0.4.2
-    # via pydantic
+    # via
+    #   fastapi
+    #   pydantic
 tzdata==2025.3
     # via
     #   arrow
@@ -661,7 +677,7 @@ uri-template==1.3.0
     # via jsonschema
 urllib3==2.6.3
     # via requests
-uvicorn==0.40.0
+uvicorn==0.41.0
     # via kedro-viz
 uvloop==0.22.1
     # via uvicorn
@@ -676,7 +692,7 @@ watchfiles==1.1.1
     # via
     #   kedro-viz
     #   uvicorn
-wcwidth==0.2.14
+wcwidth==0.6.0
     # via prompt-toolkit
 weasel==0.4.3
     # via spacy
@@ -693,17 +709,17 @@ websockets==15.0.1
     #   atproto
     #   google-genai
     #   uvicorn
-werkzeug==3.1.5
+werkzeug==3.1.6
     # via kedro-viz
 widgetsnbextension==4.0.15
     # via ipywidgets
-wrapt==2.0.1
+wrapt==2.1.1
     # via smart-open
 zipp==3.23.0
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
-setuptools==80.9.0
+setuptools==82.0.0
     # via
     #   jupyterlab
     #   spacy

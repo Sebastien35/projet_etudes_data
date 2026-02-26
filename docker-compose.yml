@@ -56,19 +56,13 @@ services:
       MYSQL_ROOT_PASSWORD: sqlpass
     ports:
       - "8084:80"
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: api
-    restart: always
-    depends_on:
-      - airflow-webserver
-      - database
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://projet_user:projet_pass@database:3306/projet_etudes_db
+  prometheus:
+    image: prom/prometheus
+    ports: ["9090:9090"]
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
+    volumes: ['./conf/prometheus.yml:/etc/prometheus/prometheus.yml']
+  grafana:
+    image: grafana/grafana
+    ports: ["3000:3000"]
       

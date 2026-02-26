@@ -2,6 +2,8 @@ import fastapi
 import os
 from shared.llm_interface import LLMInterface
 from shared.gemini_service import GeminiService
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from pydantic import BaseModel
 import json
 import logging
@@ -11,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 app = fastapi.FastAPI()
+Instrumentator().instrument(app).expose(app)
+
 llm_service: LLMInterface = GeminiService(model_name="gemini-3-flash-preview", api_key=os.environ.get("GEMINI_API_KEY"))
 
 class QuestionRequest(BaseModel):
