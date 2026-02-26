@@ -69,3 +69,18 @@ run2:
 .PHONY: run3
 run3:
 	kedro run --pipeline=vectorisation
+
+.PHONY: web
+web:
+	streamlit run src/streamlit_app	/streamlit_app.py
+
+.PHONY: api
+api:
+	uvicorn src.api.api:app --reload --port 8080
+
+.PHONY: quickstart
+quickstart: install-all run3 web api
+
+.PHONY: startapp
+startapp:
+	web api

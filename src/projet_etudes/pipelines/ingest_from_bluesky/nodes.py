@@ -84,6 +84,8 @@ def format_posts(client: Client, username: str, category: str, limit: int = 10) 
 
 def save_posts_to_db(posts: list) -> int:
     """Save posts to MongoDB and return count."""
+    conn = mongo.use_collection("posts")
+    save = []
     for post in posts:
         save_to_db = {
             "text": post["text"],
@@ -93,8 +95,9 @@ def save_posts_to_db(posts: list) -> int:
             "utc_saved_at": datetime.now(),
             "category": post["category"],
         }
+        save.append(save_to_db)
         conn = mongo.use_collection("posts")
-        conn.insert_one(save_to_db)
+    conn.insert_many(save)
 
     return len(posts)
 

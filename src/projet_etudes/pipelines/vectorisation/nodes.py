@@ -31,7 +31,12 @@ def get_cleaned_posts():
 
 
 def vectorise(docs):
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(
+        max_features=2000,
+        min_df=3, max_df=0.8,
+        ngram_range=(1,2),
+        stop_words='english'
+    )
     tfidf_matrix = vectorizer.fit_transform(docs)
     df = pd.DataFrame(
         tfidf_matrix.toarray(), columns=vectorizer.get_feature_names_out()
@@ -88,17 +93,17 @@ def save_rag_joblib(
 ):
     """Save docs, TF-IDF vectors and clusters using joblib for better handling of large NumPy arrays."""
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(docs)
 
     data = {
-        "docs": docs,  # list[str]
-        "tfidf_columns": tfidf_df.columns.tolist(),
-        "tfidf_matrix": tfidf_df.to_numpy(),  # 2D array
-        "clusters": clusters.astype(int),  # 1D array
+        "docs": docs,
+        "vectorizer": vectorizer,  # save this
+        "tfidf_matrix": tfidf_matrix,
+        "clusters": clusters,
     }
 
-    joblib.dump(
-        data, filepath, compress=3
-    )  # compress=3 balances speed and size [web:11][web:12]
+    joblib.dump(data, filepath, compress=3)
 
     logger.info(f"Saved {len(docs)} vectorized docs to {filepath}")
     return filepath
