@@ -31,7 +31,12 @@ def get_cleaned_posts():
 
 
 def vectorise(docs):
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(
+        max_features=2000,
+        min_df=3, max_df=0.8,
+        ngram_range=(1,2),
+        stop_words='english'
+    )
     tfidf_matrix = vectorizer.fit_transform(docs)
     df = pd.DataFrame(
         tfidf_matrix.toarray(), columns=vectorizer.get_feature_names_out()
