@@ -6,7 +6,8 @@ on:
     branches: [ main, dev, ci ]
 
 jobs:
-  build:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -16,8 +17,38 @@ jobs:
       run: uv python install 3.10
     - name: Install dependencies
       run: uv sync --extra dev
-    - name: ruff check
-      run: make lint
+
+    - name: black
+      run: uv run black --check .
+
+    - name: isort
+      run: uv run isort --check-only .
+
+    - name: ruff
+      run: uv run ruff check .
+
+    - name: hadolint (Dockerfile)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile
+
+    - name: hadolint (Dockerfile.airflow)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile.airflow
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+    - name: Set up Python
+      run: uv python install 3.10
+    - name: Install dependencies
+      run: uv sync --extra dev
+
     - name: Load all repo secrets as env vars
       env:
         SECRETS_CONTEXT: ${{ toJson(secrets) }}
