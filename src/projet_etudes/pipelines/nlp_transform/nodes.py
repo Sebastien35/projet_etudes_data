@@ -24,11 +24,18 @@ load_dotenv()
 
 mongo = mongo_client()
 
-# Initialize emotion classifier once at module level for reuse
 EMOTION_MODEL_NAME = "nateraw/bert-base-uncased-emotion"
-emotion_classifier = pipeline(
-    "text-classification", model=EMOTION_MODEL_NAME, return_all_scores=True
-)
+_emotion_classifier = None
+
+
+def get_emotion_classifier():
+    global _emotion_classifier
+    if _emotion_classifier is None:
+        logger.info("Loading emotion classifier model...")
+        _emotion_classifier = pipeline(
+            "text-classification", model=EMOTION_MODEL_NAME, return_all_scores=True
+        )
+    return _emotion_classifier
 
 
 def get_posts_to_treat():
@@ -83,12 +90,6 @@ def normalize_text(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def tokenize_text(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["tokens"] = df["normalized_text"].apply(lambda x: x.split(" "))
-    return df
-
-
 def lemmatize_text(df: pd.DataFrame) -> pd.DataFrame:
     nlp = spacy.load("en_core_web_sm")
 
@@ -111,7 +112,7 @@ def classify_emotion(df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(text, str) or not text.strip():
             return {"emotion": None, "score": None, "all_scores": []}
         try:
-            raw = emotion_classifier(text, return_all_scores=True)
+            raw = get_emotion_classifier()(text, return_all_scores=True)
             # Toujours récupérer une liste de dicts
             if isinstance(raw, list) and len(raw) > 0:
                 scores = raw[0] if isinstance(raw[0], list) else [raw[0]]
@@ -134,6 +135,13 @@ def classify_emotion(df: pd.DataFrame) -> pd.DataFrame:
     df["emotion_score"] = preds.apply(lambda x: x["score"])
     df["emotion_all_scores"] = preds.apply(lambda x: x["all_scores"])
     return df
+
+
+def merge_features(lemmatized_df: pd.DataFrame, emotion_df: pd.DataFrame) -> pd.DataFrame:
+    emotion_cols = emotion_df[["unique_id", "emotion", "emotion_score", "emotion_all_scores"]]
+    return lemmatized_df.merge(emotion_cols, on="unique_id", how="left")
+
+
 def save_to_db(df: pd.DataFrame) -> int:
     cleaned_posts_collection = mongo.use_collection("cleaned_posts")
     records = df.to_dict(orient="records")
@@ -145,7 +153,6 @@ def save_to_db(df: pd.DataFrame) -> int:
             "utc_saved_at": pd.Timestamp.now(),
             "category": record["category"],
             "normalized_text": record["normalized_text"],
-            "tokens": record["tokens"],
             "lemmas": record["lemmas"],
             "emotion": record.get("emotion"),
             "emotion_score": record.get("emotion_score"),

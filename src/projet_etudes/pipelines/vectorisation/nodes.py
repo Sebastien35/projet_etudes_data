@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from pymongo import UpdateOne
+from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import silhouette_score
 from shared.mongo import mongo_client
 
@@ -34,41 +34,36 @@ def get_cleaned_posts():
     return docs, filtered_posts
 
 
+SBERT_MODEL_NAME = "all-MiniLM-L6-v2"
+
+
 def vectorize_docs(docs):
-    """Return tfidf_df AND fitted vectorizer."""
-    vectorizer = TfidfVectorizer(
-        max_features=2000,
-        min_df=3,
-        max_df=0.8,
-        ngram_range=(1, 2),
-        stop_words="english",
-    )
-    tfidf_matrix = vectorizer.fit_transform(docs)
-    tfidf_df = pd.DataFrame(
-        tfidf_matrix.toarray(), columns=vectorizer.get_feature_names_out()
-    )
-    return tfidf_df, vectorizer  # RETURN BOTH
+    """Encode docs with a sentence-transformer. Returns (embeddings, model_name)."""
+    model = SentenceTransformer(SBERT_MODEL_NAME)
+    embeddings = model.encode(docs, show_progress_bar=True, convert_to_numpy=True)
+    logger.info(f"Encoded {len(docs)} docs → shape {embeddings.shape}")
+    return embeddings, SBERT_MODEL_NAME
 
 
-def find_best_k(tfidf_matrix, k_range=range(2, 11)):
+def find_best_k(embeddings, k_range=range(2, 11)):
     """Auto-select k via silhouette."""
     best_score, best_k = -1, 2
     for k in k_range:
         kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-        labels = kmeans.fit_predict(tfidf_matrix)
+        labels = kmeans.fit_predict(embeddings)
         if len(np.unique(labels)) > 1:
-            score = silhouette_score(tfidf_matrix, labels)
+            score = silhouette_score(embeddings, labels)
             if score > best_score:
                 best_score, best_k = score, k
     logger.info(f"Best k: {best_k} (silhouette: {best_score:.4f})")
     return best_k
 
 
-def clusterize(tfidf_matrix):
+def clusterize(embeddings):
     """KMeans clustering."""
-    n_clusters = find_best_k(tfidf_matrix)
+    n_clusters = find_best_k(embeddings)
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    clusters = kmeans.fit_predict(tfidf_matrix)
+    clusters = kmeans.fit_predict(embeddings)
     logger.info(f"Clusters: {np.bincount(clusters)}")
     return clusters
 
@@ -109,52 +104,37 @@ def save_rag_pkl(docs, tfidf_df, clusters, filepath="data/06_models/rag_vectors.
 
 
 def save_rag_joblib(
-    docs, tfidf_df, clusters, vectorizer, filepath="data/06_models/rag_vectors.joblib"
+    docs, embeddings, clusters, model_name, filepath="data/06_models/rag_vectors.joblib"
 ):
-    """Export for RAG using joblib (better for large NumPy arrays)."""
+    """Export for RAG using joblib."""
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
 
     data = {
-        "docs": docs,  # list[str] - lemmatized docs
-        "tfidf_columns": tfidf_df.columns.tolist(),
-        "vectorizer": vectorizer,  # TfidfVectorizer
-        "tfidf_matrix": tfidf_df.to_numpy(),  # NumPy array - efficient with joblib
-        "clusters": clusters.astype(int),  # cluster labels
+        "docs": docs,          # list[str] - lemmatized docs
+        "model_name": model_name,  # SentenceTransformer model name
+        "embeddings": embeddings,  # NumPy array (n_docs, embedding_dim)
+        "clusters": clusters.astype(int),
     }
 
     joblib.dump(data, filepath, compress=3)
-    logger.info(f"Saved RAG data ({len(docs)} docs): {filepath}")
+    logger.info(f"Saved RAG data ({len(docs)} docs, shape {embeddings.shape}): {filepath}")
     return filepath
 
 
-from pymongo import UpdateOne
-
-
 def save_vectorized_posts(
-    posts, tfidf_df, clusters, collection_name="vectorized_posts"
+    posts, embeddings, clusters, collection_name="vectorized_posts"
 ):
-    """
-    Save posts + TF-IDF vectors + clusters + vectorizer to Mongo.
-
-    Args:
-        posts: list[dict] from cleaned_posts
-        tfidf_df: pd.DataFrame (TF-IDF matrix)
-        clusters: np.array[int] cluster labels
-        vectorizer: fitted TfidfVectorizer
-    """
+    """Save posts + sentence embeddings + clusters to Mongo."""
     collection = mongo.use_collection(collection_name)
-    vectors = tfidf_df.to_numpy()
 
-    if not (len(posts) == len(vectors) == len(clusters)):
+    if not (len(posts) == len(embeddings) == len(clusters)):
         logger.error(
-            f"Mismatch → posts={len(posts)}, vectors={len(vectors)}, clusters={len(clusters)}"
+            f"Mismatch → posts={len(posts)}, embeddings={len(embeddings)}, clusters={len(clusters)}"
         )
-        raise ValueError("Mismatch posts / vectors / clusters")
+        raise ValueError("Mismatch posts / embeddings / clusters")
 
     updates = []
-    for i in range(len(posts)):
-        post = posts[i]
-
+    for i, post in enumerate(posts):
         updates.append(
             UpdateOne(
                 {"unique_id": post["unique_id"]},
@@ -166,8 +146,7 @@ def save_vectorized_posts(
                         "lemmas": post.get("lemmas"),
                         "emotion": post.get("emotion"),
                         "cluster": int(clusters[i]),
-                        "tfidf_vector": vectors[i].tolist(),  # dense vector
-                        "tfidf_columns": tfidf_df.columns.tolist(),  # vocab
+                        "embedding": embeddings[i].tolist(),
                     }
                 },
                 upsert=True,

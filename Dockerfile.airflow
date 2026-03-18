@@ -1,0 +1,16 @@
+# Airflow 2.8 is the first stable release with pydantic v2 support,
+# which is required by Kedro 1.0 and spaCy (via thinc).
+FROM apache/airflow:2.8.4-python3.10
+
+USER airflow
+
+RUN pip install --no-cache-dir \
+    "pymysql" \
+    "kedro~=1.0.0" \
+    "kedro-airflow" \
+    "kedro-datasets[pandas-csvdataset]" \
+    "pymongo" \
+    "python-dotenv" \
+    "spacy"
+
+RUN python -m spacy download en_core_web_sm

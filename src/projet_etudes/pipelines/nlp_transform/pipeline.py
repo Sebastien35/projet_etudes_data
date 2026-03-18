@@ -6,11 +6,11 @@ generated using Kedro 1.0.0
 from kedro.pipeline import Node, Pipeline  # noqa
 from .nodes import (
     clean_text,
+    classify_emotion,
     get_posts_to_treat,
     lemmatize_text,
+    merge_features,
     normalize_text,
-    tokenize_text,
-    classify_emotion,
     save_to_db,
 )  # noqa
 
@@ -36,27 +36,29 @@ def create_pipeline(**kwargs) -> Pipeline:
                 outputs="normalized_posts",
                 name="normalize_text_node",
             ),
-            Node(
-                func=tokenize_text,
-                inputs="normalized_posts",
-                outputs="tokenized_posts",
-                name="tokenize_text_node",
-            ),
+            # Lemmatization and emotion classification run on the same
+            # normalized text in parallel — each adds its own columns.
             Node(
                 func=lemmatize_text,
-                inputs="tokenized_posts",
+                inputs="normalized_posts",
                 outputs="lemmatized_posts",
                 name="lemmatize_text_node",
             ),
             Node(
                 func=classify_emotion,
-                inputs="lemmatized_posts",
-                outputs="classified_posts",
+                inputs="normalized_posts",
+                outputs="emotion_posts",
                 name="classify_emotion_node",
             ),
             Node(
+                func=merge_features,
+                inputs=["lemmatized_posts", "emotion_posts"],
+                outputs="featured_posts",
+                name="merge_features_node",
+            ),
+            Node(
                 func=save_to_db,
-                inputs="classified_posts",
+                inputs="featured_posts",
                 outputs=None,
                 name="save_to_db_node",
             ),

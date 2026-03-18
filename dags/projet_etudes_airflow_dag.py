@@ -16,10 +16,10 @@ class KedroOperator(BaseOperator):
         self,
         package_name: str,
         pipeline_name: str,
-        node_name: str | list[str],
         project_path: str | Path,
         env: str,
         conf_source: str,
+        node_name: str | list[str] | None = None,
         *args,
         **kwargs,
     ) -> None:
@@ -41,30 +41,101 @@ class KedroOperator(BaseOperator):
             session.run(self.pipeline_name, node_names=self.node_name)
 
 
-# Kedro settings required to run your pipeline
-env = "airflow"
-pipeline_name = "__default__"
-project_path = Path.cwd()
-package_name = "projet_etudes"
-conf_source = "" or Path.cwd() / "conf"
+# ── Shared settings ────────────────────────────────────────────────────────
+
+PROJECT_PATH = Path.cwd()
+PACKAGE_NAME = "projet_etudes"
+ENV = "airflow"
+CONF_SOURCE = str(PROJECT_PATH / "conf")
+
+DEFAULT_ARGS = dict(
+    owner="airflow",
+    depends_on_past=False,
+    email_on_failure=False,
+    email_on_retry=False,
+    retries=1,
+    retry_delay=timedelta(minutes=5),
+)
 
 
-# Using a DAG context manager, you don't have to specify the dag property of each task
+def kedro_task(dag: DAG, task_id: str, pipeline_name: str) -> KedroOperator:
+    """Create a KedroOperator task that runs an entire pipeline in one session."""
+    return KedroOperator(
+        task_id=task_id,
+        package_name=PACKAGE_NAME,
+        pipeline_name=pipeline_name,
+        project_path=PROJECT_PATH,
+        env=ENV,
+        conf_source=CONF_SOURCE,
+        dag=dag,
+    )
+
+
+# ── DAG 1: ingest_from_bluesky ─────────────────────────────────────────────
+# Fetches posts from the Bluesky API and saves them to MongoDB.
+# Runs hourly so the dataset stays fresh.
+
 with DAG(
-    dag_id="projet-etudes",
-    start_date=datetime(2023, 1, 1),
-    max_active_runs=3,
-    # https://airflow.apache.org/docs/stable/scheduler.html#dag-runs
+    dag_id="ingest_from_bluesky",
+    start_date=datetime(2024, 1, 1),
     schedule_interval="@hourly",
     catchup=False,
-    # Default settings applied to all tasks
-    default_args=dict(
-        owner="airflow",
-        depends_on_past=False,
-        email_on_failure=False,
-        email_on_retry=False,
-        retries=1,
-        retry_delay=timedelta(minutes=5),
-    ),
-) as dag:
-    tasks = {}
+    max_active_runs=1,
+    default_args=DEFAULT_ARGS,
+    tags=["kedro", "ingest"],
+) as ingest_dag:
+    kedro_task(ingest_dag, "ingest_from_bluesky", "ingest_from_bluesky")
+
+
+# ── DAG 2: nlp_transform ───────────────────────────────────────────────────
+# Cleans, lemmatizes, and emotion-classifies posts from MongoDB.
+# Processes only posts not yet in cleaned_posts (incremental).
+# Runs hourly, in step with ingestion.
+
+with DAG(
+    dag_id="nlp_transform",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval="@hourly",
+    catchup=False,
+    max_active_runs=1,
+    default_args=DEFAULT_ARGS,
+    tags=["kedro", "nlp"],
+) as nlp_dag:
+    kedro_task(nlp_dag, "nlp_transform", "nlp_transform")
+
+
+# ── DAG 3: vectorisation ───────────────────────────────────────────────────
+# Encodes cleaned posts with SBERT, clusters them, and persists
+# embeddings to MongoDB and the RAG joblib file.
+# Re-runs daily since clustering is computed over the full corpus.
+
+with DAG(
+    dag_id="vectorisation",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval="@daily",
+    catchup=False,
+    max_active_runs=1,
+    default_args=DEFAULT_ARGS,
+    tags=["kedro", "vectorisation"],
+) as vectorisation_dag:
+    kedro_task(vectorisation_dag, "vectorisation", "vectorisation")
+
+
+# ── DAG 4: full_pipeline ───────────────────────────────────────────────────
+# Runs all three pipelines end-to-end in the correct order.
+# Useful for bootstrapping the system from scratch or for daily full runs.
+
+with DAG(
+    dag_id="full_pipeline",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval="@daily",
+    catchup=False,
+    max_active_runs=1,
+    default_args=DEFAULT_ARGS,
+    tags=["kedro", "full"],
+) as full_dag:
+    ingest = kedro_task(full_dag, "ingest_from_bluesky", "ingest_from_bluesky")
+    nlp = kedro_task(full_dag, "nlp_transform", "nlp_transform")
+    vectorise = kedro_task(full_dag, "vectorisation", "vectorisation")
+
+    ingest >> nlp >> vectorise

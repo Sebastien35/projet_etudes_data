@@ -34,6 +34,7 @@ dependencies = [
     "prometheus-fastapi-instrumentator",
     "transformers",
     "torch",
+    "sentence-transformers",
 ]
 
 [project.scripts]

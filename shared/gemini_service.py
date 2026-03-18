@@ -1,7 +1,9 @@
 from shared.llm_interface import LLMInterface
+from shared.metrics import LLM_LATENCY, RAG_CONTEXT_CHARS, RETRIEVAL_COUNTER
 from google import genai
 from dotenv import load_dotenv
 import os
+import time
 from shared.rag import Rag
 import json
 import logging
@@ -115,10 +117,11 @@ JSON:
 
 
     def send_message(self, claim: str) -> dict:
-        context_chunks = self.rag.retrieve_context(
-            claim,
-            top_k_docs=5
-        )
+        start = time.perf_counter()
+
+        context_chunks = self.rag.retrieve_context(claim, top_k_docs=5)
+        context_chars = sum(len(c) for c in context_chunks)
+        RAG_CONTEXT_CHARS.observe(context_chars)
 
         if is_context_sufficient(context_chunks):
             prompt = self.build_factcheck_rag_prompt(claim, context_chunks)
@@ -130,13 +133,16 @@ JSON:
             contents=prompt
         )
 
-        # Ensure valid JSON output with markdown extraction
+        LLM_LATENCY.observe(time.perf_counter() - start)
+
         try:
             logger.info(f"LLM response: {response.text}")
             parsed_response = extract_json_from_response(response.text)
+            RETRIEVAL_COUNTER.labels(source=parsed_response.get("based_on", "unknown")).inc()
             return parsed_response
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Failed to parse LLM response: {response.text[:500]}... Error: {str(e)}")
+            RETRIEVAL_COUNTER.labels(source="error").inc()
             return {
                 "verdict": "uncertain",
                 "probability": 0.0,

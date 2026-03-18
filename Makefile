@@ -40,6 +40,7 @@ airflow-init:
 	docker compose run --rm airflow-webserver airflow db init
 	docker compose run --rm airflow-webserver airflow users create \
 		--username admin \
+		--password admin \
 		--firstname Admin \
 		--lastname User \
 		--role Admin \

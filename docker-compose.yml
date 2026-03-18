@@ -1,41 +1,72 @@
+x-airflow-common: &airflow-common
+  environment:
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
+    - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+    - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+pymysql://projet_user:projet_pass@database:3306/projet_etudes_db
+    # Makes the project packages importable inside the container
+    - PYTHONPATH=/opt/airflow/src:/opt/airflow
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./shared:/opt/airflow/shared
+    - ./conf:/opt/airflow/conf
+    - ./data:/opt/airflow/data
+    # named volumes — avoids host-permission issues (host dirs owned by root,
+    # Airflow runs as UID 50000 and cannot write bind-mounted dirs)
+    - airflow-logs:/opt/airflow/logs
+    - airflow-plugins:/opt/airflow/plugins
+  depends_on:
+    - database
+
 services:
+  # ── DB init ─────────────────────────────────────────────────────────────
+  # Runs once on first `docker compose up`.
+  # Polls until MariaDB is accepting connections, then initialises the
+  # Airflow metadata DB and creates the admin user.
+  # restart: "no" so it exits cleanly after success and the webserver/
+  # scheduler can use condition: service_completed_successfully.
+  airflow-init:
+    <<: *airflow-common
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-init
+    restart: "no"
+    command: ["bash", "-c", "i=0; until airflow db check 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; echo \"Waiting for DB ($$i/30)...\"; sleep 5; done && airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com 2>/dev/null; exit 0"]
+
+  # ── Webserver ────────────────────────────────────────────────────────────
   airflow-webserver:
-    image: apache/airflow:2.5.1
+    <<: *airflow-common
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
     restart: always
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://projet_user:projet_pass@database:3306/projet_etudes_db
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
     ports:
       - "8083:8080"
     command: webserver
 
+  # ── Scheduler ────────────────────────────────────────────────────────────
+  # Built from Dockerfile.airflow — extends official Airflow 2.6.3 with the
+  # project's orchestration-layer packages (kedro, spacy, etc.).
   airflow-scheduler:
+    <<: *airflow-common
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
     restart: always
     depends_on:
-      - airflow-webserver
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
-      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://projet_user:projet_pass@database:3306/projet_etudes_db
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
+      airflow-init:
+        condition: service_completed_successfully
     command: scheduler
+
+  # ── Database ─────────────────────────────────────────────────────────────
   database:
     image: mariadb:latest
     container_name: projet_etudes_db
@@ -47,6 +78,7 @@ services:
       MYSQL_PASSWORD: projet_pass
     ports:
       - "3360:3306"
+
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: projet_etudes_phpmyadmin
@@ -56,13 +88,28 @@ services:
       MYSQL_ROOT_PASSWORD: sqlpass
     ports:
       - "8084:80"
+
+  # ── Monitoring ───────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus
     ports: ["9090:9090"]
     extra_hosts:
-    - "host.docker.internal:host-gateway"
-    volumes: ['./conf/prometheus.yml:/etc/prometheus/prometheus.yml']
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./conf/prometheus.yml:/etc/prometheus/prometheus.yml
+
   grafana:
     image: grafana/grafana
     ports: ["3000:3000"]
-      
+    depends_on:
+      - prometheus
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./conf/grafana/provisioning:/etc/grafana/provisioning
+      - ./conf/grafana/dashboards:/var/lib/grafana/dashboards
+
+volumes:
+  airflow-logs:
+  airflow-plugins:
