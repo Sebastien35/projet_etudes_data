@@ -9,19 +9,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Install make
-      run: sudo apt-get update && sudo apt-get install -y make
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
     - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.10'
+      run: uv python install 3.10
     - name: Install dependencies
-      run: |
-        make install-all
+      run: uv sync --extra dev
     - name: ruff check
-      run: |
-        make lint
+      run: make lint
     - name: Load all repo secrets as env vars
       env:
         SECRETS_CONTEXT: ${{ toJson(secrets) }}
@@ -30,4 +26,4 @@ jobs:
         echo "$SECRETS_CONTEXT" | jq -r "to_entries[] | \"\(.key)<<$EOF\n\(.value)\n$EOF\"" >> $GITHUB_ENV
 
     - name: pytest
-      run: venv/bin/pytest
+      run: uv run pytest

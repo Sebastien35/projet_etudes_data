@@ -5,9 +5,11 @@ import string
 import sys
 import unicodedata
 
+import nltk
 import pandas as pd
-import spacy
 from dotenv import load_dotenv
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 from transformers import pipeline
 
 
@@ -91,11 +93,17 @@ def normalize_text(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def lemmatize_text(df: pd.DataFrame) -> pd.DataFrame:
-    nlp = spacy.load("en_core_web_sm")
+    nltk.download("wordnet", quiet=True)
+    nltk.download("stopwords", quiet=True)
+    lemmatizer = WordNetLemmatizer()
+    stop_words = set(stopwords.words("english"))
 
     def _lemmatize(text: str) -> list[str]:
-        doc = nlp(text)
-        return [token.lemma_ for token in doc if not token.is_stop and token.is_alpha]
+        return [
+            lemmatizer.lemmatize(token)
+            for token in text.split()
+            if token.isalpha() and token.lower() not in stop_words
+        ]
 
     df = df.copy()
     if "normalized_text" not in df.columns:

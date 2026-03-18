@@ -1,34 +1,14 @@
-.PHONY: requirements
-requirements: ## Builds Python production requirements.
-	venv/bin/python -m pip install "pip<25" "pip-tools<7.6" --upgrade --force-reinstall
-	venv/bin/pip-compile \
-		--allow-unsafe \
-		--strip-extras \
-		--upgrade \
-		--output-file=requirements.txt \
-		pyproject.toml
+.PHONY: lock
+lock: ## Generate/update uv.lock from pyproject.toml.
+	uv lock
 
-.PHONY: requirements-dev
-requirements-dev: ## Builds Python development requirements.
-	venv/bin/python -m pip install "pip<25" "pip-tools<7.6" --upgrade --force-reinstall
-	venv/bin/pip-compile \
-		--allow-unsafe \
-		--strip-extras \
-		--upgrade \
-		--extra dev \
-		--extra test \
-		--output-file=requirements-dev.txt \
-		pyproject.toml
-
-.PHONY: requirements-all
-requirements-all: requirements requirements-dev ## Builds all Python requirements files.
+.PHONY: lock-upgrade
+lock-upgrade: ## Upgrade all dependencies and regenerate uv.lock.
+	uv lock --upgrade
 
 
 install-all:
-	rm -rf venv
-	python3 -m venv venv
-	venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt
-	venv/bin/python -m spacy download en_core_web_sm
+	uv sync --extra dev
 
 
 .PHONY: build db airflow-init up down logs
@@ -57,19 +37,19 @@ logs:
 # 	streamlit run src/streamlit/app.py
 
 lint:
-	venv/bin/pre-commit run --all-files
+	uv run pre-commit run --all-files
 
 .PHONY: run1
 run1:
-	kedro run --pipeline=ingest_from_bluesky
+	PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=ingest_from_bluesky
 
 .PHONY: run2
 run2:
-	kedro run --pipeline=nlp_transform
+	PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=nlp_transform
 
 .PHONY: run3
 run3:
-	kedro run --pipeline=vectorisation
+	PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=vectorisation
 
 .PHONY: web
 web:

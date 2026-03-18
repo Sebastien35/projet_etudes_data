@@ -1,17 +1,12 @@
 FROM python:3.12-alpine
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /opt
 
-# Copy requirements first (better Docker cache)
-COPY requirements.txt .
-COPY requirements-dev.txt .
-COPY Makefile .
+# Copy dependency files first (better Docker cache)
+COPY pyproject.toml uv.lock ./
+COPY src ./src
 
-# Install build deps + make
-RUN apk add --no-cache make gcc musl-dev && \
-    make quickstart && \
-    apk del gcc musl-dev  # Cleanup build deps
-
-# Copy application source
-COPY ./src .
-
+# Install dependencies
+RUN uv sync --frozen --no-dev

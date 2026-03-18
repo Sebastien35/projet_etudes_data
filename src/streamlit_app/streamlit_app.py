@@ -337,7 +337,10 @@ if page == "Fact-Check":
     # Chat history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"], unsafe_allow_html=True)
+            if msg.get("is_html"):
+                st.html(msg["content"])
+            else:
+                st.markdown(msg["content"])
 
     # Input
     user_input = st.chat_input("Paste a claim, post, or headline to verify…")
@@ -407,8 +410,8 @@ if page == "Fact-Check":
                 </div>
             </div>"""
 
-            st.markdown(html, unsafe_allow_html=True)
-            st.session_state.messages.append({"role": "assistant", "content": html})
+            st.html(html)
+            st.session_state.messages.append({"role": "assistant", "content": html, "is_html": True})
 
     if not st.session_state.messages:
         st.markdown(f"""
