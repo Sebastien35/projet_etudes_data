@@ -1,37 +1,41 @@
 class ColorChart:
-    """Light-mode visionOS glassmorphism palette."""
+    """Pastel visionOS glassmorphism palette — mobile-first."""
 
     # Backgrounds
-    BG_GRADIENT = "linear-gradient(135deg, #e8f0fe 0%, #f5f7ff 50%, #ede8ff 100%)"
-    GLASS_BG = "rgba(255, 255, 255, 0.65)"
-    GLASS_BORDER = "rgba(255, 255, 255, 0.85)"
-    GLASS_SHADOW = "0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)"
+    BG_GRADIENT = "linear-gradient(150deg, #cfe0ff 0%, #eef2ff 45%, #e2d9ff 100%)"
+    GLASS_BG = "rgba(255, 255, 255, 0.72)"
+    GLASS_BORDER = "rgba(255, 255, 255, 0.92)"
+    GLASS_SHADOW = "0 8px 32px rgba(110, 120, 200, 0.10), 0 2px 8px rgba(110, 120, 200, 0.06)"
 
     # Text
-    TEXT_MAIN = "#1C1C1E"
-    TEXT_MUTED = "#6E6E73"
-    TEXT_SUBTLE = "#AEAEB2"
+    TEXT_MAIN = "#2c2c3a"
+    TEXT_MUTED = "#7a7a90"
+    TEXT_SUBTLE = "#b0b0c4"
 
-    # Accent (visionOS blue)
-    ACCENT_PRIMARY = "#007AFF"
-    ACCENT_SOFT = "rgba(0, 122, 255, 0.12)"
-    ACCENT_BORDER = "rgba(0, 122, 255, 0.28)"
+    # Accent — pastel periwinkle/indigo
+    ACCENT_PRIMARY = "#7b9cf4"
+    ACCENT_SOFT = "rgba(123, 156, 244, 0.15)"
+    ACCENT_BORDER = "rgba(123, 156, 244, 0.38)"
 
-    # Semantic
-    SUCCESS_COLOR = "#34C759"
-    WARNING_COLOR = "#FF9F0A"
-    DANGER_COLOR = "#FF3B30"
-    YELLOW = "#FF9F0A"
+    # Semantic — pastel
+    SUCCESS_COLOR = "#6ee7b7"   # pastel mint
+    WARNING_COLOR = "#fcd34d"   # pastel yellow
+    DANGER_COLOR = "#fca5a5"    # pastel rose
+    YELLOW = "#fcd34d"
 
-    # Verdict scale
+    # Verdict scale — pastel
     VERDICT_COLORS = {
-        "true": "#34C759",
-        "very likely true": "#30D158",
-        "uncertain": "#FF9F0A",
-        "very likely false": "#FF6B35",
-        "false": "#FF3B30",
-        "error": "#FF3B30",
+        "true": "#6ee7b7",
+        "very likely true": "#86efac",
+        "uncertain": "#fcd34d",
+        "very likely false": "#fdba74",
+        "false": "#fca5a5",
+        "error": "#fca5a5",
     }
+
+    @classmethod
+    def verdict_color(cls, verdict: str) -> str:
+        return cls.VERDICT_COLORS.get(verdict.lower(), cls.TEXT_MUTED)
 
     @classmethod
     def get_bg_main(cls) -> str:
@@ -72,7 +76,3 @@ class ColorChart:
     @classmethod
     def get_yellow(cls) -> str:
         return cls.YELLOW
-
-    @classmethod
-    def verdict_color(cls, verdict: str) -> str:
-        return cls.VERDICT_COLORS.get(verdict.lower(), cls.TEXT_MUTED)

@@ -24,7 +24,7 @@ mongo = mongo_client()
 def send_message_api(message: str) -> dict:
     url = StreamlitConfig().api_url + "ask"
     try:
-        response = requests.post(url, json={"question": message}, timeout=30)
+        response = requests.post(url, json={"question": message}, timeout=120)
         response.raise_for_status()
         data = response.json()
     except Exception as e:
