@@ -1,15 +1,15 @@
 import logging
 import pickle
-import joblib
 from pathlib import Path
+
+import joblib
 import numpy as np
-import pandas as pd
 from pymongo import UpdateOne
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from shared.mongo import mongo_client
 
+from shared.mongo import mongo_client
 
 logger = logging.getLogger(__name__)
 mongo = mongo_client()
@@ -110,14 +110,16 @@ def save_rag_joblib(
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
 
     data = {
-        "docs": docs,          # list[str] - lemmatized docs
+        "docs": docs,  # list[str] - lemmatized docs
         "model_name": model_name,  # SentenceTransformer model name
         "embeddings": embeddings,  # NumPy array (n_docs, embedding_dim)
         "clusters": clusters.astype(int),
     }
 
     joblib.dump(data, filepath, compress=3)
-    logger.info(f"Saved RAG data ({len(docs)} docs, shape {embeddings.shape}): {filepath}")
+    logger.info(
+        f"Saved RAG data ({len(docs)} docs, shape {embeddings.shape}): {filepath}"
+    )
     return filepath
 
 

@@ -103,27 +103,54 @@ def save_posts_to_db(posts: list) -> int:
 
 
 def fetch_from_keywords() -> list:
-    """Fetch posts by trending keywords."""
+    """Fetch posts by trending keywords, using search results directly."""
 
     client = get_client()
 
     themes = {
-        "Discover": ["news", "world", "science", "tech"],
-        "Trending": ["breaking", "urgent", "live"],
-        "Hot Topics": ["politics", "election", "covid", "crisis"],
+        "Discover": ["news", "world news", "science", "technology", "research"],
+        "Trending": ["breaking news", "urgent", "live updates", "alert"],
+        "Hot Topics": ["politics", "election", "climate", "crisis", "economy", "AI"],
+        "Misinformation": ["fact check", "debunked", "misinformation", "conspiracy", "hoax"],
     }
 
+    existing_posts = set(mongo.use_collection("posts").distinct("unique_id"))
+    seen_uris: set[str] = set()
     data = []
 
     for category, keywords in themes.items():
         for word in keywords:
             try:
-                search = {"q": word, "limit": 5}
-                response = client.app.bsky.feed.search_posts(params=search)
+                response = client.app.bsky.feed.search_posts(
+                    params={"q": word, "limit": 25, "lang": "en"}
+                )
                 for item in response.posts:
+                    uri = item.uri
+                    if uri in seen_uris:
+                        continue
+                    seen_uris.add(uri)
+
                     username = item.author.handle
-                    posts = format_posts(client, username, category, limit=2)
-                    data.extend(posts)
+                    record = item.record
+                    text = getattr(record, "text", None)
+                    created_at = getattr(record, "created_at", None)
+
+                    if not text or not created_at:
+                        continue
+
+                    unique_id = f"{username}_{created_at}"
+                    if unique_id in existing_posts:
+                        continue
+                    existing_posts.add(unique_id)
+
+                    data.append(
+                        {
+                            "username": username,
+                            "text": text,
+                            "created_at": created_at,
+                            "category": category,
+                        }
+                    )
             except Exception as e:
                 logger.error(f"Error fetching posts for keyword '{word}': {e}")
 

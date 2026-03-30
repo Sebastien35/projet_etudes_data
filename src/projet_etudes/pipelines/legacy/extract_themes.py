@@ -6,8 +6,9 @@ from atproto import Client
 from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../../..")
-from shared.mongo import mongo_client  # noqa
 import logging
+
+from shared.mongo import mongo_client  # noqa
 
 load_dotenv()
 

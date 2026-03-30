@@ -1,5 +1,4 @@
 import joblib
-import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -9,7 +8,7 @@ class Rag:
         data = joblib.load(filepath)
 
         self.model = SentenceTransformer(data["model_name"])
-        self.docs = data["docs"]          # list[str]
+        self.docs = data["docs"]  # list[str]
         self.embeddings = data["embeddings"]  # (n_docs, embedding_dim)
         self.clusters = data["clusters"]  # array[int]
 

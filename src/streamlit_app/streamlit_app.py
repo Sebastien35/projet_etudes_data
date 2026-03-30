@@ -1,16 +1,14 @@
-import streamlit as st
 import altair as alt
-
+import streamlit as st
+from streamlit_color_chart import ColorChart
 from streamlit_logic import (
-    send_message_api,
+    emotion_distribution,
     get_posts,
+    posts_per_hour,
+    send_message_api,
     top_users_per_category,
     trending_keywords,
-    posts_per_hour,
-    emotion_distribution,
 )
-from streamlit_color_chart import ColorChart
-from streamlit_config import StreamlitConfig
 
 # ── Page config ────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -23,7 +21,8 @@ st.set_page_config(
 C = ColorChart
 
 # ── Global CSS ─────────────────────────────────────────────────────────────
-st.markdown(f"""
+st.markdown(
+    f"""
 <style>
 /* ─ Base ─────────────────────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -251,12 +250,15 @@ hr {{
     border-top: 1px solid rgba(255,255,255,0.80) !important;
 }}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div style="padding:0.5rem 0 1.5rem;">
         <div style="font-size:1.5rem; font-weight:700; color:{C.TEXT_MAIN};
                     letter-spacing:-0.5px;">🔍 FakeShield</div>
@@ -264,7 +266,9 @@ with st.sidebar:
             Bluesky Intelligence Platform
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     page = st.radio("", ["Fact-Check", "Analytics"], label_visibility="collapsed")
 
@@ -273,12 +277,15 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div style="position:absolute; bottom:1.5rem; left:1.5rem; right:1.5rem;
                 font-size:0.72rem; color:{C.TEXT_SUBTLE}; text-align:center;">
         M1 Data Science · 2024
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 # ── Load data (cached) ─────────────────────────────────────────────────────
@@ -295,22 +302,28 @@ def load_data():
         emotion_distribution(df),
     )
 
+
 df_posts, df_category, df_trend, df_hour, df_emotion = load_data()
 has_data = df_posts is not None and not df_posts.empty
+
 
 # ── Altair theme helper ────────────────────────────────────────────────────
 def glass_chart(chart):
     return (
-        chart
-        .configure_view(strokeWidth=0, fill="transparent")
+        chart.configure_view(strokeWidth=0, fill="transparent")
         .configure_axis(
-            labelColor=C.TEXT_MUTED, titleColor=C.TEXT_MUTED,
-            gridColor="rgba(0,0,0,0.06)", domainColor="rgba(0,0,0,0.1)",
-            labelFont="Inter, sans-serif", titleFont="Inter, sans-serif",
+            labelColor=C.TEXT_MUTED,
+            titleColor=C.TEXT_MUTED,
+            gridColor="rgba(0,0,0,0.06)",
+            domainColor="rgba(0,0,0,0.1)",
+            labelFont="Inter, sans-serif",
+            titleFont="Inter, sans-serif",
         )
         .configure_legend(
-            labelColor=C.TEXT_MUTED, titleColor=C.TEXT_MUTED,
-            labelFont="Inter, sans-serif", titleFont="Inter, sans-serif",
+            labelColor=C.TEXT_MUTED,
+            titleColor=C.TEXT_MUTED,
+            labelFont="Inter, sans-serif",
+            titleFont="Inter, sans-serif",
         )
     )
 
@@ -320,7 +333,8 @@ def glass_chart(chart):
 # ══════════════════════════════════════════════════════════════════════════
 if page == "Fact-Check":
 
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div class="glass-card" style="margin-bottom:1.5rem;">
         <div style="font-size:1.6rem; font-weight:700; color:{C.TEXT_MAIN};
                     letter-spacing:-0.4px;">Fact-Check a Claim</div>
@@ -329,7 +343,9 @@ if page == "Fact-Check":
             the Bluesky corpus and responds with a verdict.
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -354,11 +370,11 @@ if page == "Fact-Check":
             with st.spinner("Checking…"):
                 result = send_message_api(user_input)
 
-            verdict   = result["verdict"]
-            color     = result["color"]
-            expl      = result["explanation"]
-            prob      = result["probability"]
-            source    = result["based_on"]
+            verdict = result["verdict"]
+            color = result["color"]
+            expl = result["explanation"]
+            prob = result["probability"]
+            source = result["based_on"]
 
             source_label = {
                 "rag": "🔵 Based on Bluesky corpus",
@@ -411,15 +427,20 @@ if page == "Fact-Check":
             </div>"""
 
             st.html(html)
-            st.session_state.messages.append({"role": "assistant", "content": html, "is_html": True})
+            st.session_state.messages.append(
+                {"role": "assistant", "content": html, "is_html": True}
+            )
 
     if not st.session_state.messages:
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div style="text-align:center; padding:3rem 0; color:{C.TEXT_SUBTLE};
                     font-size:0.9rem;">
             ↑  Enter a claim above to get started
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -427,38 +448,44 @@ if page == "Fact-Check":
 # ══════════════════════════════════════════════════════════════════════════
 elif page == "Analytics":
 
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div style="font-size:1.6rem; font-weight:700; color:{C.TEXT_MAIN};
                 letter-spacing:-0.4px; margin-bottom:1.5rem;">
         Analytics
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     if not has_data:
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div class="glass-card" style="text-align:center; padding:3rem;">
             <div style="font-size:2rem;">📭</div>
             <div style="color:{C.TEXT_MUTED}; margin-top:0.5rem;">
                 No data yet — run the ingestion pipeline first.
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
         st.stop()
 
     # ── Stat row ──────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Posts",     f"{len(df_posts):,}")
-    c2.metric("Unique Authors",  f"{df_posts['username'].nunique():,}")
-    c3.metric("Categories",      f"{df_posts['category'].nunique():,}")
+    c1.metric("Total Posts", f"{len(df_posts):,}")
+    c2.metric("Unique Authors", f"{df_posts['username'].nunique():,}")
+    c3.metric("Categories", f"{df_posts['category'].nunique():,}")
     top_kw = df_trend.iloc[0]["keyword"] if not df_trend.empty else "—"
-    c4.metric("Top Keyword",     top_kw)
+    c4.metric("Top Keyword", top_kw)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Chart tabs ────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "  Keywords  ", "  Top Authors  ", "  Posts by Hour  ", "  Emotions  "
-    ])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["  Keywords  ", "  Top Authors  ", "  Posts by Hour  ", "  Emotions  "]
+    )
 
     # ── Tab 1: Keywords ───────────────────────────────────────────────────
     with tab1:
@@ -519,13 +546,14 @@ elif page == "Analytics":
                 color=C.ACCENT_PRIMARY,
                 opacity=0.12,
                 line={"color": C.ACCENT_PRIMARY, "strokeWidth": 2},
-                point=alt.OverlayMarkDef(
-                    color=C.ACCENT_PRIMARY, filled=True, size=60
-                ),
+                point=alt.OverlayMarkDef(color=C.ACCENT_PRIMARY, filled=True, size=60),
             )
             .encode(
-                x=alt.X("hour:Q", title="Hour of day",
-                         axis=alt.Axis(tickCount=24, format="d")),
+                x=alt.X(
+                    "hour:Q",
+                    title="Hour of day",
+                    axis=alt.Axis(tickCount=24, format="d"),
+                ),
                 y=alt.Y("count:Q", title="Posts"),
                 tooltip=["hour:Q", "count:Q"],
             )
@@ -541,12 +569,12 @@ elif page == "Analytics":
 
         if df_emotion is not None and not df_emotion.empty:
             EMOTION_COLORS = {
-                "joy":     "#34C759",
+                "joy": "#34C759",
                 "sadness": "#007AFF",
-                "anger":   "#FF3B30",
-                "fear":    "#FF9F0A",
-                "love":    "#FF2D55",
-                "surprise":"#AF52DE",
+                "anger": "#FF3B30",
+                "fear": "#FF9F0A",
+                "love": "#FF2D55",
+                "surprise": "#AF52DE",
             }
             color_range = [
                 EMOTION_COLORS.get(e, C.ACCENT_PRIMARY)
@@ -557,8 +585,9 @@ elif page == "Analytics":
                 alt.Chart(df_emotion)
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
-                    y=alt.Y("emotion:N", sort="-x", title="",
-                             axis=alt.Axis(labelLimit=120)),
+                    y=alt.Y(
+                        "emotion:N", sort="-x", title="", axis=alt.Axis(labelLimit=120)
+                    ),
                     x=alt.X("count:Q", title="Posts"),
                     color=alt.Color(
                         "emotion:N",
@@ -574,10 +603,13 @@ elif page == "Analytics":
             )
             st.altair_chart(glass_chart(bars), use_container_width=True)
         else:
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div style="text-align:center; padding:2rem; color:{C.TEXT_MUTED};">
                 No emotion data yet — run the NLP pipeline first.
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
         st.markdown("</div>", unsafe_allow_html=True)

@@ -4,15 +4,16 @@ generated using Kedro 1.0.0
 """
 
 from kedro.pipeline import Node, Pipeline  # noqa
-from .nodes import (
-    clean_text,
+
+from .nodes import (  # noqa
     classify_emotion,
+    clean_text,
     get_posts_to_treat,
     lemmatize_text,
     merge_features,
     normalize_text,
     save_to_db,
-)  # noqa
+)
 
 
 def create_pipeline(**kwargs) -> Pipeline:

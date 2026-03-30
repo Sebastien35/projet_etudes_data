@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from kedro.framework.project import configure_project
+from kedro.framework.session import KedroSession
+
 from airflow import DAG
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from kedro.framework.project import configure_project
-from kedro.framework.session import KedroSession
 
 
 class KedroOperator(BaseOperator):

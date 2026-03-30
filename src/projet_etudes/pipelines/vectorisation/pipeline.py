@@ -1,11 +1,12 @@
 from kedro.pipeline import node, pipeline
+
 from .nodes import (
-    get_cleaned_posts,
-    vectorize_docs,
     clusterize,
+    get_cleaned_posts,
     save_clusters_to_mongo,
     save_rag_joblib,
     save_vectorized_posts,
+    vectorize_docs,
 )
 
 
@@ -16,7 +17,9 @@ def create_pipeline(**kwargs):
             node(vectorize_docs, "docs", ["embeddings", "model_name"]),
             node(clusterize, "embeddings", "clusters"),
             node(save_clusters_to_mongo, ["posts_", "clusters"], None),
-            node(save_rag_joblib, ["docs", "embeddings", "clusters", "model_name"], None),
+            node(
+                save_rag_joblib, ["docs", "embeddings", "clusters", "model_name"], None
+            ),
             node(save_vectorized_posts, ["posts_", "embeddings", "clusters"], None),
         ]
     )

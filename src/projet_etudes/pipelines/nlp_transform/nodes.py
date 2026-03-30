@@ -12,14 +12,12 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from transformers import pipeline
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../../../..")
 from shared.mongo import mongo_client  # noqa
-
 
 load_dotenv()
 
@@ -111,6 +109,7 @@ def lemmatize_text(df: pd.DataFrame) -> pd.DataFrame:
     df["lemmas"] = df["normalized_text"].apply(_lemmatize)
     return df
 
+
 def classify_emotion(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     if "normalized_text" not in df.columns:
@@ -131,7 +130,11 @@ def classify_emotion(df: pd.DataFrame) -> pd.DataFrame:
 
             if scores:
                 best = max(scores, key=lambda x: x["score"])
-                return {"emotion": best["label"], "score": best["score"], "all_scores": scores}
+                return {
+                    "emotion": best["label"],
+                    "score": best["score"],
+                    "all_scores": scores,
+                }
             return {"emotion": None, "score": None, "all_scores": []}
 
         except Exception as e:
@@ -145,8 +148,12 @@ def classify_emotion(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def merge_features(lemmatized_df: pd.DataFrame, emotion_df: pd.DataFrame) -> pd.DataFrame:
-    emotion_cols = emotion_df[["unique_id", "emotion", "emotion_score", "emotion_all_scores"]]
+def merge_features(
+    lemmatized_df: pd.DataFrame, emotion_df: pd.DataFrame
+) -> pd.DataFrame:
+    emotion_cols = emotion_df[
+        ["unique_id", "emotion", "emotion_score", "emotion_all_scores"]
+    ]
     return lemmatized_df.merge(emotion_cols, on="unique_id", how="left")
 
 

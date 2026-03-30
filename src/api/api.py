@@ -1,12 +1,13 @@
-import fastapi
-import os
-from shared.llm_interface import LLMInterface
-from shared.gemini_service import GeminiService
-from shared.metrics import VERDICT_COUNTER
-from prometheus_fastapi_instrumentator import Instrumentator
-
-from pydantic import BaseModel
 import logging
+import os
+
+import fastapi
+from prometheus_fastapi_instrumentator import Instrumentator
+from pydantic import BaseModel
+
+from shared.gemini_service import GeminiService
+from shared.llm_interface import LLMInterface
+from shared.metrics import VERDICT_COUNTER
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

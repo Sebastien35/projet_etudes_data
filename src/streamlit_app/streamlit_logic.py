@@ -1,12 +1,13 @@
-import pandas as pd
 import logging
-import requests
 import os
 import sys
 from collections import Counter
+
+import pandas as pd
+import requests
 from dotenv import load_dotenv
-from streamlit_config import StreamlitConfig
 from streamlit_color_chart import ColorChart
+from streamlit_config import StreamlitConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,11 +50,19 @@ def send_message_api(message: str) -> dict:
 def get_posts() -> pd.DataFrame:
     collection = mongo.use_collection("cleaned_posts")
     df = pd.DataFrame(
-        list(collection.find(
-            {},
-            {"_id": 0, "username": 1, "created_at": 1, "category": 1,
-             "lemmas": 1, "emotion": 1},
-        ))
+        list(
+            collection.find(
+                {},
+                {
+                    "_id": 0,
+                    "username": 1,
+                    "created_at": 1,
+                    "category": 1,
+                    "lemmas": 1,
+                    "emotion": 1,
+                },
+            )
+        )
     )
     if df.empty:
         return df
@@ -73,16 +82,43 @@ def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
 
 def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
     BLACKLIST = {
-        "be", "have", "do", "not", "say", "get", "make", "go", "know",
-        "see", "use", "would", "could", "should", "de", "la", "le", "et",
-        "les", "des", "un", "une", "pour", "dans", "que", "qui", "sur",
-        "pas", "plus", "ne", "au", "aux",
+        "be",
+        "have",
+        "do",
+        "not",
+        "say",
+        "get",
+        "make",
+        "go",
+        "know",
+        "see",
+        "use",
+        "would",
+        "could",
+        "should",
+        "de",
+        "la",
+        "le",
+        "et",
+        "les",
+        "des",
+        "un",
+        "une",
+        "pour",
+        "dans",
+        "que",
+        "qui",
+        "sur",
+        "pas",
+        "plus",
+        "ne",
+        "au",
+        "aux",
     }
     counter = Counter()
     for lemmas in df["lemmas"]:
         counter.update(
-            w for w in lemmas
-            if w not in BLACKLIST and len(w) > 1 and w.isalpha()
+            w for w in lemmas if w not in BLACKLIST and len(w) > 1 and w.isalpha()
         )
     return pd.DataFrame(counter.most_common(top_k), columns=["keyword", "count"])
 

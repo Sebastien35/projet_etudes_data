@@ -1,17 +1,17 @@
-from shared.llm_interface import LLMInterface
-from shared.metrics import LLM_LATENCY, RAG_CONTEXT_CHARS, RETRIEVAL_COUNTER
-from google import genai
-from dotenv import load_dotenv
-import os
-import time
-from shared.rag import Rag
 import json
 import logging
 import re
+import time
 
+from dotenv import load_dotenv
+from google import genai
+
+from shared.llm_interface import LLMInterface
+from shared.metrics import LLM_LATENCY, RAG_CONTEXT_CHARS, RETRIEVAL_COUNTER
+from shared.rag import Rag
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('shared.gemini_service')
+logger = logging.getLogger("shared.gemini_service")
 
 
 load_dotenv()
@@ -30,19 +30,17 @@ def extract_json_from_response(text: str) -> dict:
     """
     if not text:
         raise ValueError("Empty response text")
-    
+
     # Remove common markdown wrappers like ```json ... ```
-    cleaned = re.sub(r'^```(?:json)?\s*\n?', '', text, flags=re.MULTILINE)
-    cleaned = re.sub(r'\n?```$', '', cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.MULTILINE)
+    cleaned = re.sub(r"\n?```$", "", cleaned, flags=re.MULTILINE)
     cleaned = cleaned.strip()
-    
+
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
         raise json.JSONDecodeError(
-            f"Failed to parse JSON after markdown cleanup: {e.msg}", 
-            e.doc, 
-            e.pos
+            f"Failed to parse JSON after markdown cleanup: {e.msg}", e.doc, e.pos
         )
 
 
@@ -53,11 +51,9 @@ class GeminiService(LLMInterface):
         self.rag = Rag()
         self.model = model_name
 
-
     # -----------------------
     # PROMPTS
     # -----------------------
-
 
     def build_factcheck_rag_prompt(self, claim, context_chunks):
         context = "\n\n".join(f"- {chunk}" for chunk in context_chunks)
@@ -87,7 +83,6 @@ CLAIM:
 now answer the question in JSON:
 """
 
-
     def build_factcheck_fallback_prompt(self, claim):
         return f"""
 You are a professional fact-checker.
@@ -110,11 +105,9 @@ CLAIM:
 JSON:
 """
 
-
     # -----------------------
     # MAIN ENTRY POINT
     # -----------------------
-
 
     def send_message(self, claim: str) -> dict:
         start = time.perf_counter()
@@ -129,8 +122,7 @@ JSON:
             prompt = self.build_factcheck_fallback_prompt(claim)
 
         response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt
+            model=self.model, contents=prompt
         )
 
         LLM_LATENCY.observe(time.perf_counter() - start)
@@ -138,14 +130,18 @@ JSON:
         try:
             logger.info(f"LLM response: {response.text}")
             parsed_response = extract_json_from_response(response.text)
-            RETRIEVAL_COUNTER.labels(source=parsed_response.get("based_on", "unknown")).inc()
+            RETRIEVAL_COUNTER.labels(
+                source=parsed_response.get("based_on", "unknown")
+            ).inc()
             return parsed_response
         except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Failed to parse LLM response: {response.text[:500]}... Error: {str(e)}")
+            logger.error(
+                f"Failed to parse LLM response: {response.text[:500]}... Error: {str(e)}"
+            )
             RETRIEVAL_COUNTER.labels(source="error").inc()
             return {
                 "verdict": "uncertain",
                 "probability": 0.0,
                 "explanation": "Model returned invalid output.",
-                "based_on": "error"
+                "based_on": "error",
             }
