@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../..")
 
+from shared.energy_service import get_energy_logs  # noqa
 from shared.mongo import mongo_client  # noqa
 
 load_dotenv()
@@ -138,4 +139,62 @@ def emotion_distribution(df: pd.DataFrame) -> pd.DataFrame:
         .size()
         .reset_index(name="count")
         .sort_values("count", ascending=False)
+    )
+
+
+# ── Energy monitoring ──────────────────────────────────────────────────────
+
+def get_energy_df() -> pd.DataFrame:
+    """Load energy logs from MongoDB and return as a DataFrame."""
+    logs = get_energy_logs()
+    if not logs:
+        return pd.DataFrame()
+    df = pd.DataFrame(logs)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    # Convert to more readable units
+    df["energy_wh"] = df["energy_kwh"] * 1000
+    df["cpu_energy_wh"] = df["cpu_energy_kwh"] * 1000
+    df["gpu_energy_wh"] = df["gpu_energy_kwh"] * 1000
+    df["ram_energy_wh"] = df["ram_energy_kwh"] * 1000
+    df["co2_mg"] = df["co2_kg"] * 1_000_000
+    return df
+
+
+def energy_by_pipeline(df: pd.DataFrame) -> pd.DataFrame:
+    return (
+        df.groupby("pipeline_name")
+        .agg(
+            total_wh=("energy_wh", "sum"),
+            total_co2_mg=("co2_mg", "sum"),
+            runs=("run_id", "nunique"),
+            total_duration_s=("duration_s", "sum"),
+        )
+        .reset_index()
+        .sort_values("total_wh", ascending=False)
+    )
+
+
+def energy_by_node(df: pd.DataFrame) -> pd.DataFrame:
+    return (
+        df.groupby(["pipeline_name", "node_name"])
+        .agg(
+            avg_wh=("energy_wh", "mean"),
+            total_wh=("energy_wh", "sum"),
+            avg_cpu_wh=("cpu_energy_wh", "mean"),
+            avg_gpu_wh=("gpu_energy_wh", "mean"),
+            avg_ram_wh=("ram_energy_wh", "mean"),
+            avg_duration_s=("duration_s", "mean"),
+            runs=("run_id", "count"),
+        )
+        .reset_index()
+        .sort_values("total_wh", ascending=False)
+    )
+
+
+def energy_timeline(df: pd.DataFrame) -> pd.DataFrame:
+    return (
+        df.groupby(["run_id", "pipeline_name", "timestamp"])
+        .agg(total_wh=("energy_wh", "sum"), total_co2_mg=("co2_mg", "sum"))
+        .reset_index()
+        .sort_values("timestamp")
     )

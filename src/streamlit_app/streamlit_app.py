@@ -3,6 +3,10 @@ import streamlit as st
 from streamlit_color_chart import ColorChart
 from streamlit_logic import (
     emotion_distribution,
+    energy_by_node,
+    energy_by_pipeline,
+    energy_timeline,
+    get_energy_df,
     get_posts,
     posts_per_hour,
     send_message_api,
@@ -301,7 +305,7 @@ st.markdown(
 )
 
 # Top-level navigation (mobile-friendly tabs)
-nav_tab1, nav_tab2 = st.tabs(["  Fact-Check  ", "  Analytics  "])
+nav_tab1, nav_tab2, nav_tab3 = st.tabs(["  Fact-Check  ", "  Analytics  ", "  Energy  "])
 
 
 # ── Load data (cached) ─────────────────────────────────────────────────────
@@ -650,3 +654,254 @@ with nav_tab2:
     """,
         unsafe_allow_html=True,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# PAGE — ENERGY REPORT
+# ══════════════════════════════════════════════════════════════════════════
+with nav_tab3:
+    st.markdown(
+        f"""
+    <div style="font-size:1.15rem; font-weight:700; color:{C.TEXT_MAIN};
+                letter-spacing:-0.3px; margin-bottom:1rem;">
+        ⚡ Energy Report
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    @st.cache_data(ttl=60)
+    def load_energy():
+        df = get_energy_df()
+        if df.empty:
+            return df, None, None, None
+        return df, energy_by_pipeline(df), energy_by_node(df), energy_timeline(df)
+
+    df_energy, df_by_pipeline, df_by_node, df_timeline = load_energy()
+
+    if st.button("↺  Reload energy data", key="reload_energy_top"):
+        st.cache_data.clear()
+        st.rerun()
+
+    if df_energy.empty:
+        st.markdown(
+            f"""
+        <div class="glass-card" style="text-align:center; padding:2.5rem 1rem;">
+            <div style="font-size:2rem;">🔋</div>
+            <div style="color:{C.TEXT_MUTED}; margin-top:0.5rem; font-size:0.9rem;">
+                No energy data yet — run a pipeline first.
+            </div>
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+    else:
+        # ── Summary cards ──────────────────────────────────────────────────
+        total_wh = df_energy["energy_wh"].sum()
+        total_co2 = df_energy["co2_mg"].sum()
+        total_runs = df_energy["run_id"].nunique()
+        heaviest = df_by_node.iloc[0]["node_name"] if not df_by_node.empty else "—"
+
+        c1, c2 = st.columns(2)
+        c1.metric("Total Energy", f"{total_wh:.2f} Wh")
+        c2.metric("Total CO₂", f"{total_co2:.1f} mg")
+
+        c3, c4 = st.columns(2)
+        c3.metric("Pipeline Runs", str(total_runs))
+        c4.metric("Heaviest Node", heaviest)
+
+        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
+        # ── Pipeline colours ───────────────────────────────────────────────
+        PIPELINE_COLORS = {
+            "ingest_from_bluesky": "#93c5fd",   # pastel blue
+            "nlp_transform":        "#d8b4fe",   # pastel purple
+            "vectorisation":        "#86efac",   # pastel green
+            "default":              "#fcd34d",   # pastel yellow
+        }
+
+        # ── Chart tabs ─────────────────────────────────────────────────────
+        etab1, etab2, etab3, etab4 = st.tabs(
+            ["By Pipeline", "By Node", "Breakdown", "Timeline"]
+        )
+
+        # ── Tab 1: Energy by pipeline ──────────────────────────────────────
+        with etab1:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            p_colors = [
+                PIPELINE_COLORS.get(p, C.ACCENT_PRIMARY)
+                for p in df_by_pipeline["pipeline_name"].tolist()
+            ]
+            bar_pipeline = (
+                alt.Chart(df_by_pipeline)
+                .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
+                .encode(
+                    y=alt.Y("pipeline_name:N", sort="-x", title="",
+                            axis=alt.Axis(labelLimit=160)),
+                    x=alt.X("total_wh:Q", title="Energy (Wh)"),
+                    color=alt.Color(
+                        "pipeline_name:N",
+                        scale=alt.Scale(
+                            domain=df_by_pipeline["pipeline_name"].tolist(),
+                            range=p_colors,
+                        ),
+                        legend=None,
+                    ),
+                    tooltip=[
+                        alt.Tooltip("pipeline_name:N", title="Pipeline"),
+                        alt.Tooltip("total_wh:Q", title="Energy (Wh)", format=".4f"),
+                        alt.Tooltip("total_co2_mg:Q", title="CO₂ (mg)", format=".2f"),
+                        alt.Tooltip("runs:Q", title="Runs"),
+                        alt.Tooltip("total_duration_s:Q", title="Duration (s)", format=".1f"),
+                    ],
+                )
+                .properties(height=max(120, len(df_by_pipeline) * 55))
+            )
+            st.altair_chart(glass_chart(bar_pipeline), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Tab 2: Energy by node ──────────────────────────────────────────
+        with etab2:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            n_colors = [
+                PIPELINE_COLORS.get(p, C.ACCENT_PRIMARY)
+                for p in df_by_node["pipeline_name"].tolist()
+            ]
+            bar_node = (
+                alt.Chart(df_by_node)
+                .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
+                .encode(
+                    y=alt.Y("node_name:N", sort="-x", title="",
+                            axis=alt.Axis(labelLimit=200)),
+                    x=alt.X("total_wh:Q", title="Total Energy (Wh)"),
+                    color=alt.Color(
+                        "pipeline_name:N",
+                        scale=alt.Scale(
+                            domain=list(PIPELINE_COLORS.keys()),
+                            range=list(PIPELINE_COLORS.values()),
+                        ),
+                        legend=alt.Legend(title="Pipeline", orient="bottom"),
+                    ),
+                    tooltip=[
+                        alt.Tooltip("node_name:N", title="Node"),
+                        alt.Tooltip("pipeline_name:N", title="Pipeline"),
+                        alt.Tooltip("total_wh:Q", title="Total (Wh)", format=".4f"),
+                        alt.Tooltip("avg_wh:Q", title="Avg/run (Wh)", format=".4f"),
+                        alt.Tooltip("avg_duration_s:Q", title="Avg duration (s)", format=".2f"),
+                        alt.Tooltip("runs:Q", title="Runs"),
+                    ],
+                )
+                .properties(height=max(180, len(df_by_node) * 38))
+            )
+            st.altair_chart(glass_chart(bar_node), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Tab 3: CPU / RAM / GPU breakdown per node ──────────────────────
+        with etab3:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            breakdown = df_by_node[
+                ["node_name", "avg_cpu_wh", "avg_ram_wh", "avg_gpu_wh"]
+            ].melt(
+                id_vars="node_name",
+                var_name="component",
+                value_name="avg_wh",
+            )
+            breakdown["component"] = breakdown["component"].map(
+                {"avg_cpu_wh": "CPU", "avg_ram_wh": "RAM", "avg_gpu_wh": "GPU"}
+            )
+            COMPONENT_COLORS = {
+                "CPU": "#93c5fd",
+                "RAM": "#d8b4fe",
+                "GPU": "#86efac",
+            }
+            stacked = (
+                alt.Chart(breakdown)
+                .mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6)
+                .encode(
+                    y=alt.Y("node_name:N", title="", axis=alt.Axis(labelLimit=200)),
+                    x=alt.X("avg_wh:Q", title="Avg Energy/run (Wh)", stack="zero"),
+                    color=alt.Color(
+                        "component:N",
+                        scale=alt.Scale(
+                            domain=["CPU", "RAM", "GPU"],
+                            range=["#93c5fd", "#d8b4fe", "#86efac"],
+                        ),
+                        legend=alt.Legend(title="Component", orient="bottom"),
+                    ),
+                    order=alt.Order("component:N"),
+                    tooltip=[
+                        alt.Tooltip("node_name:N", title="Node"),
+                        alt.Tooltip("component:N", title="Component"),
+                        alt.Tooltip("avg_wh:Q", title="Avg (Wh)", format=".5f"),
+                    ],
+                )
+                .properties(height=max(180, len(df_by_node) * 38))
+            )
+            st.altair_chart(glass_chart(stacked), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Tab 4: Timeline ────────────────────────────────────────────────
+        with etab4:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            if df_timeline is not None and not df_timeline.empty:
+                tl_colors = [
+                    PIPELINE_COLORS.get(p, C.ACCENT_PRIMARY)
+                    for p in df_timeline["pipeline_name"].tolist()
+                ]
+                scatter = (
+                    alt.Chart(df_timeline)
+                    .mark_point(filled=True, size=80, opacity=0.75)
+                    .encode(
+                        x=alt.X("timestamp:T", title="Date"),
+                        y=alt.Y("total_wh:Q", title="Energy / run (Wh)"),
+                        color=alt.Color(
+                            "pipeline_name:N",
+                            scale=alt.Scale(
+                                domain=list(PIPELINE_COLORS.keys()),
+                                range=list(PIPELINE_COLORS.values()),
+                            ),
+                            legend=alt.Legend(title="Pipeline", orient="bottom"),
+                        ),
+                        tooltip=[
+                            alt.Tooltip("timestamp:T", title="Date", format="%Y-%m-%d %H:%M"),
+                            alt.Tooltip("pipeline_name:N", title="Pipeline"),
+                            alt.Tooltip("total_wh:Q", title="Energy (Wh)", format=".4f"),
+                            alt.Tooltip("total_co2_mg:Q", title="CO₂ (mg)", format=".2f"),
+                        ],
+                    )
+                    .properties(height=280)
+                )
+                st.altair_chart(glass_chart(scatter), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Recent logs table ──────────────────────────────────────────────
+        st.markdown(
+            f"""
+        <div style="font-size:0.85rem; font-weight:600; color:{C.TEXT_MUTED};
+                    text-transform:uppercase; letter-spacing:0.05em;
+                    margin:1rem 0 0.5rem;">
+            Recent runs
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+        display_cols = {
+            "timestamp": "Time",
+            "pipeline_name": "Pipeline",
+            "node_name": "Node",
+            "energy_wh": "Energy (Wh)",
+            "co2_mg": "CO₂ (mg)",
+            "duration_s": "Duration (s)",
+        }
+        df_display = (
+            df_energy[list(display_cols.keys())]
+            .head(40)
+            .rename(columns=display_cols)
+            .assign(**{
+                "Energy (Wh)": lambda d: d["Energy (Wh)"].map("{:.4f}".format),
+                "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map("{:.3f}".format),
+                "Duration (s)": lambda d: d["Duration (s)"].map("{:.2f}".format),
+                "Time": lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+        )
+        st.dataframe(df_display, use_container_width=True, hide_index=True)

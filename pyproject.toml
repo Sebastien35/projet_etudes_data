@@ -35,6 +35,8 @@ dependencies = [
     "transformers",
     "torch",
     "sentence-transformers",
+    "codecarbon",
+    "commitizen>=4.8.3",
 ]
 
 [project.scripts]
