@@ -1,11 +1,9 @@
-# projet_etudes
+# Projet d'études Data & AI
+Goulet Gabriel, Richard Mathieu, Borgne Sébastien
 
-# How to run :
 
-Only works with the environment vars.
-Use make to run the project. Commands are defined in makefile.
-- make install-all : install all requirements
-- make run1 : run the pipeline ingest_from_bluesky
-- make run2 : run the pipeline nlp_transform
-- make run3 : run the pipeline vectorisation and save model locally
-- make quickstart will run vectorisation will install dependencies, run the vectorisation pipeline and start both the api and the web app
+## Présentation
+- Ce projet est une application de data science et d'IA, basée sur le framework Kedro, qui permet de récupérer des données de Bluesky, de les prétraiter et de les classer en tant que faux-news.
+
+## Installation
+- Utiliser le script `Makefile` pour lancer les différents pipeline de Kedro
