@@ -1,0 +1,15 @@
+# Labeled training data for the LSTM fake news classifier.
+# Download from: https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset
+# Place True.csv and Fake.csv in data/01_raw/ before running the model_training pipeline.
+
+true_news_data:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/01_raw/True.csv
+  load_args:
+    encoding: utf-8
+
+fake_news_data:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/01_raw/Fake.csv
+  load_args:
+    encoding: utf-8

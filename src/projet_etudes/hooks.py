@@ -3,6 +3,7 @@ import logging
 from kedro.framework.hooks import hook_impl
 from pyspark import SparkConf
 from pyspark.sql import SparkSession
+from shared.energy_service import save_energy_log
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -43,9 +44,6 @@ class EnergyHook:
         try:
             tracker.stop()
             d = tracker.final_emissions_data
-
-            from shared.energy_service import save_energy_log
-
             save_energy_log(
                 pipeline_name=self._current_pipeline,
                 node_name=node.name,

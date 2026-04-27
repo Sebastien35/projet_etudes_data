@@ -2,10 +2,11 @@ import altair as alt
 import streamlit as st
 from streamlit_color_chart import ColorChart
 from streamlit_logic import (
-    emotion_distribution,
     energy_by_node,
     energy_by_pipeline,
     energy_timeline,
+    fake_real_distribution,
+    get_classified_posts,
     get_energy_df,
     get_posts,
     posts_per_hour,
@@ -314,16 +315,17 @@ def load_data():
     df = get_posts()
     if df.empty:
         return df, None, None, None, None
+    df_classified = get_classified_posts()
     return (
         df,
         top_users_per_category(df),
         trending_keywords(df),
         posts_per_hour(df),
-        emotion_distribution(df),
+        fake_real_distribution(df_classified),
     )
 
 
-df_posts, df_category, df_trend, df_hour, df_emotion = load_data()
+df_posts, df_category, df_trend, df_hour, df_fakenews = load_data()
 has_data = df_posts is not None and not df_posts.empty
 
 
@@ -397,6 +399,7 @@ with nav_tab1:
             source = result["based_on"]
 
             source_label = {
+                "kmeans": "🟣 KMeans classifier",
                 "rag": "🔵 Bluesky corpus",
                 "general_knowledge": "🟡 General knowledge",
                 "error": "🔴 API error",
@@ -592,44 +595,32 @@ with nav_tab2:
         st.altair_chart(glass_chart(area), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Tab 4: Emotions ───────────────────────────────────────────────────
+    # ── Tab 4: Fake vs Real ───────────────────────────────────────────────
     with tab4:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        if df_emotion is not None and not df_emotion.empty:
-            EMOTION_COLORS = {
-                "joy": "#86efac",
-                "sadness": "#93c5fd",
-                "anger": "#fca5a5",
-                "fear": "#fdba74",
-                "love": "#f9a8d4",
-                "surprise": "#d8b4fe",
-            }
+        if df_fakenews is not None and not df_fakenews.empty:
+            LABEL_COLORS = {"Real": "#6ee7b7", "Fake": "#fca5a5"}
             color_range = [
-                EMOTION_COLORS.get(e, C.ACCENT_PRIMARY)
-                for e in df_emotion["emotion"].tolist()
+                LABEL_COLORS.get(lbl, C.ACCENT_PRIMARY)
+                for lbl in df_fakenews["label"].tolist()
             ]
             bars = (
-                alt.Chart(df_emotion)
+                alt.Chart(df_fakenews)
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
-                    y=alt.Y(
-                        "emotion:N",
-                        sort="-x",
-                        title="",
-                        axis=alt.Axis(labelLimit=110),
-                    ),
+                    y=alt.Y("label:N", sort="-x", title="", axis=alt.Axis(labelLimit=110)),
                     x=alt.X("count:Q", title="Posts"),
                     color=alt.Color(
-                        "emotion:N",
+                        "label:N",
                         scale=alt.Scale(
-                            domain=df_emotion["emotion"].tolist(),
+                            domain=df_fakenews["label"].tolist(),
                             range=color_range,
                         ),
                         legend=None,
                     ),
-                    tooltip=["emotion:N", "count:Q"],
+                    tooltip=["label:N", "count:Q"],
                 )
-                .properties(height=260)
+                .properties(height=160)
             )
             st.altair_chart(glass_chart(bars), use_container_width=True)
         else:
@@ -637,7 +628,7 @@ with nav_tab2:
                 f"""
             <div style="text-align:center; padding:2rem; color:{C.TEXT_MUTED};
                         font-size:0.88rem;">
-                No emotion data yet — run the NLP pipeline first.
+                No classification data yet — run the vectorisation pipeline first.
             </div>
             """,
                 unsafe_allow_html=True,

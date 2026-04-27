@@ -41,15 +41,15 @@ lint:
 
 .PHONY: run1
 run1:
-	PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=ingest_from_bluesky
+	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=ingest_from_bluesky
 
 .PHONY: run2
 run2:
-	PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=nlp_transform
+	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=nlp_transform
 
 .PHONY: run3
 run3:
-	PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=vectorisation
+	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=vectorisation
 
 .PHONY: web
 web:
@@ -57,7 +57,7 @@ web:
 
 .PHONY: api
 api:
-	uvicorn src.api.api:app --reload --port 8080 --host 0.0.0.0
+	uvicorn src.api.api:app --host 0.0.0.0 --port 8080
 
 .PHONY: quickstart
 quickstart: install-all run3 web api

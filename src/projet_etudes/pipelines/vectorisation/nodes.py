@@ -2,12 +2,11 @@ import logging
 import pickle
 from pathlib import Path
 
-import joblib
 import numpy as np
+import pandas as pd
 from pymongo import UpdateOne
-from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from shared.mongo import mongo_client
 
@@ -16,149 +15,89 @@ mongo = mongo_client()
 
 
 def get_cleaned_posts():
-    collection = mongo.use_collection("cleaned_posts")
-    raw_posts = list(collection.find())
-
-    filtered_posts = []
-    docs = []
-
-    for p in raw_posts:
-        lemmas = p.get("lemmas")
-
-        if lemmas:
-            filtered_posts.append(p)
-            docs.append(" ".join(lemmas))
-
-    logger.info(f"Loaded {len(docs)} documents for clustering")
-
-    return docs, filtered_posts
-
-
-SBERT_MODEL_NAME = "all-MiniLM-L6-v2"
-
-
-def vectorize_docs(docs):
-    """Encode docs with a sentence-transformer. Returns (embeddings, model_name)."""
-    model = SentenceTransformer(SBERT_MODEL_NAME)
-    embeddings = model.encode(docs, show_progress_bar=True, convert_to_numpy=True)
-    logger.info(f"Encoded {len(docs)} docs → shape {embeddings.shape}")
-    return embeddings, SBERT_MODEL_NAME
-
-
-def find_best_k(embeddings, k_range=range(2, 11)):
-    """Auto-select k via silhouette."""
-    best_score, best_k = -1, 2
-    for k in k_range:
-        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
-        labels = kmeans.fit_predict(embeddings)
-        if len(np.unique(labels)) > 1:
-            score = silhouette_score(embeddings, labels)
-            if score > best_score:
-                best_score, best_k = score, k
-    logger.info(f"Best k: {best_k} (silhouette: {best_score:.4f})")
-    return best_k
-
-
-def clusterize(embeddings):
-    """KMeans clustering."""
-    n_clusters = find_best_k(embeddings)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    clusters = kmeans.fit_predict(embeddings)
-    logger.info(f"Clusters: {np.bincount(clusters)}")
-    return clusters
-
-
-def save_clusters_to_mongo(posts, clusters):
-    """Update cleaned_posts with cluster labels."""
-    collection = mongo.use_collection("cleaned_posts")
-
-    updates = []
-
-    for post, cluster in zip(posts, clusters):
-        updates.append(
-            UpdateOne(
-                {"unique_id": post["unique_id"]}, {"$set": {"cluster": int(cluster)}}
-            )
-        )
-
-    if updates:
-        collection.bulk_write(updates, ordered=False)
-        logger.info(f"Updated {len(updates)} posts with clusters")
-
-    return len(updates)
-
-
-def save_rag_pkl(docs, tfidf_df, clusters, filepath="data/06_models/rag_vectors.pkl"):
-    """Export for RAG."""
-    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-    data = {
-        "docs": docs,
-        "tfidf_columns": tfidf_df.columns.tolist(),
-        "tfidf_matrix": tfidf_df.to_numpy(),
-        "clusters": clusters.astype(int),
-    }
-    with open(filepath, "wb") as f:
-        pickle.dump(data, f)
-    logger.info(f"Saved RAG data: {filepath}")
-    return filepath
-
-
-def save_rag_joblib(
-    docs, embeddings, clusters, model_name, filepath="data/06_models/rag_vectors.joblib"
-):
-    """Export for RAG using joblib."""
-    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-
-    data = {
-        "docs": docs,  # list[str] - lemmatized docs
-        "model_name": model_name,  # SentenceTransformer model name
-        "embeddings": embeddings,  # NumPy array (n_docs, embedding_dim)
-        "clusters": clusters.astype(int),
-    }
-
-    joblib.dump(data, filepath, compress=3)
-    logger.info(
-        f"Saved RAG data ({len(docs)} docs, shape {embeddings.shape}): {filepath}"
+    """Fetch posts that have been normalised but not yet classified."""
+    cleaned_collection = mongo.use_collection("cleaned_posts")
+    classified_ids = set(
+        mongo.use_collection("classified_posts").distinct("unique_id")
     )
-    return filepath
+
+    raw_posts = list(cleaned_collection.find({"normalized_text": {"$exists": True, "$ne": ""}}))
+    posts = [p for p in raw_posts if p["unique_id"] not in classified_ids]
+    texts = [p["normalized_text"] for p in posts]
+
+    logger.info(f"Loaded {len(posts)} unclassified posts for inference")
+    return texts, posts
 
 
-def save_vectorized_posts(
-    posts, embeddings, clusters, collection_name="vectorized_posts"
-):
-    """Save posts + sentence embeddings + clusters to Mongo."""
-    collection = mongo.use_collection(collection_name)
+def vectorize_texts(texts: list, max_features: int):
+    """TF-IDF vectorize normalized texts. Returns matrix and fitted vectorizer."""
+    vectorizer = TfidfVectorizer(max_features=max_features, sublinear_tf=True)
+    matrix = vectorizer.fit_transform(texts)
+    logger.info(f"TF-IDF matrix shape: {matrix.shape}")
+    return matrix, vectorizer
 
-    if not (len(posts) == len(embeddings) == len(clusters)):
-        logger.error(
-            f"Mismatch → posts={len(posts)}, embeddings={len(embeddings)}, clusters={len(clusters)}"
+
+def cluster_posts(tfidf_matrix, n_clusters: int):
+    """KMeans clustering. Returns labels, distance-based scores, and fitted model.
+
+    Cluster 1 is treated as 'real', cluster 0 as 'fake' (arbitrary convention).
+    The score represents how strongly a post belongs to cluster 1 (real),
+    derived from the ratio of distances to each centroid.
+    """
+    km = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
+    labels = km.fit_predict(tfidf_matrix)
+
+    distances = km.transform(tfidf_matrix)  # (n_samples, n_clusters)
+    d0 = distances[:, 0]
+    d1 = distances[:, 1] if n_clusters > 1 else np.zeros_like(d0)
+    scores = d0 / (d0 + d1 + 1e-8)
+
+    real_count = int((labels == 1).sum())
+    fake_count = len(labels) - real_count
+    logger.info(f"Clustered {len(labels)} posts → cluster-1 (real): {real_count}, cluster-0 (fake): {fake_count}")
+    return labels, scores, km
+
+
+def save_model_artifacts(vectorizer, km_model, vectorizer_path: str, kmeans_path: str):
+    """Persist the fitted TF-IDF vectorizer and KMeans model for the API service."""
+    Path(vectorizer_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(vectorizer_path, "wb") as f:
+        pickle.dump(vectorizer, f)
+    with open(kmeans_path, "wb") as f:
+        pickle.dump(km_model, f)
+    logger.info(f"Saved TF-IDF vectorizer → {vectorizer_path}")
+    logger.info(f"Saved KMeans model → {kmeans_path}")
+
+
+def save_predictions(posts: list, probs, labels) -> int:
+    """Upsert cluster-based predictions into the classified_posts collection."""
+    collection = mongo.use_collection("classified_posts")
+
+    updates = [
+        UpdateOne(
+            {"unique_id": post["unique_id"]},
+            {
+                "$set": {
+                    "unique_id": post["unique_id"],
+                    "username": post.get("username"),
+                    "category": post.get("category"),
+                    "normalized_text": post.get("normalized_text"),
+                    "fake_news_prob": float(prob),
+                    "is_real": bool(label == 1),
+                    "cluster": int(label),
+                    "classified_at": pd.Timestamp.now(),
+                }
+            },
+            upsert=True,
         )
-        raise ValueError("Mismatch posts / embeddings / clusters")
-
-    updates = []
-    for i, post in enumerate(posts):
-        updates.append(
-            UpdateOne(
-                {"unique_id": post["unique_id"]},
-                {
-                    "$set": {
-                        "unique_id": post["unique_id"],
-                        "username": post.get("username"),
-                        "normalized_text": post.get("normalized_text"),
-                        "lemmas": post.get("lemmas"),
-                        "emotion": post.get("emotion"),
-                        "cluster": int(clusters[i]),
-                        "embedding": embeddings[i].tolist(),
-                    }
-                },
-                upsert=True,
-            )
-        )
+        for post, prob, label in zip(posts, probs, labels)
+    ]
 
     if updates:
         result = collection.bulk_write(updates, ordered=False)
         logger.info(
-            f"Upserted {len(updates)} vectorized posts (matched: {result.matched_count}, modified: {result.modified_count})"
+            f"Upserted {len(updates)} predictions "
+            f"(matched: {result.matched_count}, modified: {result.modified_count})"
         )
 
     return len(updates)

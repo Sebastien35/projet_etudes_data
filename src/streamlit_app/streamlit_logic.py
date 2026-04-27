@@ -59,8 +59,7 @@ def get_posts() -> pd.DataFrame:
                     "username": 1,
                     "created_at": 1,
                     "category": 1,
-                    "lemmas": 1,
-                    "emotion": 1,
+                    "normalized_text": 1,
                 },
             )
         )
@@ -68,6 +67,31 @@ def get_posts() -> pd.DataFrame:
     if df.empty:
         return df
     df["created_at"] = pd.to_datetime(df["created_at"], format="ISO8601", utc=True)
+    return df
+
+
+def get_classified_posts() -> pd.DataFrame:
+    """Fetch posts classified by KMeans clustering (fake/real labels)."""
+    collection = mongo.use_collection("classified_posts")
+    df = pd.DataFrame(
+        list(
+            collection.find(
+                {},
+                {
+                    "_id": 0,
+                    "username": 1,
+                    "category": 1,
+                    "is_real": 1,
+                    "fake_news_prob": 1,
+                    "classified_at": 1,
+                },
+            )
+        )
+    )
+    if df.empty:
+        return df
+    df["classified_at"] = pd.to_datetime(df["classified_at"], utc=True)
+    df["label"] = df["is_real"].map({True: "Real", False: "Fake"})
     return df
 
 
@@ -83,43 +107,17 @@ def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
 
 def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
     BLACKLIST = {
-        "be",
-        "have",
-        "do",
-        "not",
-        "say",
-        "get",
-        "make",
-        "go",
-        "know",
-        "see",
-        "use",
-        "would",
-        "could",
-        "should",
-        "de",
-        "la",
-        "le",
-        "et",
-        "les",
-        "des",
-        "un",
-        "une",
-        "pour",
-        "dans",
-        "que",
-        "qui",
-        "sur",
-        "pas",
-        "plus",
-        "ne",
-        "au",
-        "aux",
+        "be", "have", "do", "not", "say", "get", "make", "go", "know", "see",
+        "use", "would", "could", "should", "the", "a", "an", "is", "it", "in",
+        "of", "to", "and", "or", "for", "on", "at", "by", "with", "this",
+        "de", "la", "le", "et", "les", "des", "un", "une", "pour", "dans",
+        "que", "qui", "sur", "pas", "plus", "ne", "au", "aux",
     }
     counter = Counter()
-    for lemmas in df["lemmas"]:
+    for text in df["normalized_text"].dropna():
         counter.update(
-            w for w in lemmas if w not in BLACKLIST and len(w) > 1 and w.isalpha()
+            w for w in text.split()
+            if w not in BLACKLIST and len(w) > 2 and w.isalpha()
         )
     return pd.DataFrame(counter.most_common(top_k), columns=["keyword", "count"])
 
@@ -130,12 +128,12 @@ def posts_per_hour(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby("hour").size().reset_index(name="count").sort_values("hour")
 
 
-def emotion_distribution(df: pd.DataFrame) -> pd.DataFrame:
-    if "emotion" not in df.columns:
-        return pd.DataFrame(columns=["emotion", "count"])
+def fake_real_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    """Distribution of fake vs real posts from classified_posts collection."""
+    if df.empty or "label" not in df.columns:
+        return pd.DataFrame(columns=["label", "count"])
     return (
-        df[df["emotion"].notna()]
-        .groupby("emotion")
+        df.groupby("label")
         .size()
         .reset_index(name="count")
         .sort_values("count", ascending=False)

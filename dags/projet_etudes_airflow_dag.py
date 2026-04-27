@@ -44,7 +44,7 @@ class KedroOperator(BaseOperator):
 
 # ── Shared settings ────────────────────────────────────────────────────────
 
-PROJECT_PATH = Path.cwd()
+PROJECT_PATH = Path(__file__).parent.parent  # /opt/airflow inside the container
 PACKAGE_NAME = "projet_etudes"
 ENV = "airflow"
 CONF_SOURCE = str(PROJECT_PATH / "conf")

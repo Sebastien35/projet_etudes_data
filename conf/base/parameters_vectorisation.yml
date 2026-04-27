@@ -1,5 +1,5 @@
-# This is a boilerplate parameters config generated for pipeline 'vectorisation'
-# using Kedro 1.0.0.
-#
-# Documentation for this file format can be found in "Parameters"
-# Link: https://docs.kedro.org/en/1.0.0/configuration/parameters.html
+vectorisation:
+  n_clusters: 2
+  max_features: 5000
+  vectorizer_path: "data/06_models/tfidf_vectorizer.pkl"
+  kmeans_path: "data/06_models/kmeans_model.pkl"

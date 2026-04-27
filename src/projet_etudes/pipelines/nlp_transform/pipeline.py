@@ -1,19 +1,11 @@
 """
-This is a boilerplate pipeline 'nlp_transform'
-generated using Kedro 1.0.0
+Pipeline 'nlp_transform' — cleans and normalises raw Bluesky posts
+for downstream KMeans classification.
 """
 
-from kedro.pipeline import Node, Pipeline  # noqa
+from kedro.pipeline import Node, Pipeline
 
-from .nodes import (  # noqa
-    classify_emotion,
-    clean_text,
-    get_posts_to_treat,
-    lemmatize_text,
-    merge_features,
-    normalize_text,
-    save_to_db,
-)
+from .nodes import clean_text, get_posts_to_treat, normalize_text, save_to_db
 
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -37,29 +29,9 @@ def create_pipeline(**kwargs) -> Pipeline:
                 outputs="normalized_posts",
                 name="normalize_text_node",
             ),
-            # Lemmatization and emotion classification run on the same
-            # normalized text in parallel — each adds its own columns.
-            Node(
-                func=lemmatize_text,
-                inputs="normalized_posts",
-                outputs="lemmatized_posts",
-                name="lemmatize_text_node",
-            ),
-            Node(
-                func=classify_emotion,
-                inputs="normalized_posts",
-                outputs="emotion_posts",
-                name="classify_emotion_node",
-            ),
-            Node(
-                func=merge_features,
-                inputs=["lemmatized_posts", "emotion_posts"],
-                outputs="featured_posts",
-                name="merge_features_node",
-            ),
             Node(
                 func=save_to_db,
-                inputs="featured_posts",
+                inputs="normalized_posts",
                 outputs=None,
                 name="save_to_db_node",
             ),

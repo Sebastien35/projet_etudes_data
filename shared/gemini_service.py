@@ -1,147 +1,50 @@
-import json
 import logging
-import re
 import time
 
 from dotenv import load_dotenv
 from google import genai
 
 from shared.llm_interface import LLMInterface
-from shared.metrics import LLM_LATENCY, RAG_CONTEXT_CHARS, RETRIEVAL_COUNTER
-from shared.rag import Rag
+from shared.metrics import LLM_LATENCY
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("shared.gemini_service")
 
-
 load_dotenv()
-
-
-def is_context_sufficient(context_chunks, min_chars=300):
-    if not context_chunks:
-        return False
-    return sum(len(c) for c in context_chunks) >= min_chars
-
-
-def extract_json_from_response(text: str) -> dict:
-    """
-    Extract JSON from LLM response that may be wrapped in markdown code blocks.
-    Handles ```json ... ``` and plain JSON.
-    """
-    if not text:
-        raise ValueError("Empty response text")
-
-    # Remove common markdown wrappers like ```json ... ```
-    cleaned = re.sub(r"^```(?:json)?\s*\n?", "", text, flags=re.MULTILINE)
-    cleaned = re.sub(r"\n?```$", "", cleaned, flags=re.MULTILINE)
-    cleaned = cleaned.strip()
-
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        raise json.JSONDecodeError(
-            f"Failed to parse JSON after markdown cleanup: {e.msg}", e.doc, e.pos
-        )
 
 
 class GeminiService(LLMInterface):
     def __init__(self, model_name: str, api_key: str):
         super().__init__(model_name, api_key)
         self.client = genai.Client(api_key=api_key)
-        self.rag = Rag()
         self.model = model_name
 
-    # -----------------------
-    # PROMPTS
-    # -----------------------
+    def explain(self, claim: str, verdict: str, probability: float) -> str:
+        """
+        Ask Gemini to explain why a claim was classified with a given verdict.
+        Returns a plain-text explanation (2-3 sentences).
+        """
+        is_real = probability >= 0.5
+        confidence_pct = int(probability * 100) if is_real else int((1 - probability) * 100)
+        label = "real news" if is_real else "fake news"
 
-    def build_factcheck_rag_prompt(self, claim, context_chunks):
-        context = "\n\n".join(f"- {chunk}" for chunk in context_chunks)
+        prompt = f"""You are a fact-checker assistant.
+A KMeans clustering model classified the following claim as {label.upper()} with {confidence_pct}% confidence (verdict: "{verdict}").
 
-        return f"""
-You are a professional fact-checker.
+In 2-3 sentences, explain what signals in the claim support this classification.
+Be factual and concise. Do not repeat the verdict label.
 
-Evaluate the following CLAIM using ONLY the CONTEXT below.
-Do not use outside knowledge.
+CLAIM: {claim}
 
-If the context does not provide enough evidence, mark the verdict as "uncertain".
+Explanation:"""
 
-Return your answer STRICTLY as valid JSON with this schema:
-{{
-  "verdict": one of ["true", "very likely true", "uncertain", "very likely false", "false"],
-  "probability": number between 0 and 1,
-  "explanation": short factual justification,
-  "based_on": "rag"
-}}
-
-Context:
-{context}
-
-CLAIM:
-{claim}
-
-now answer the question in JSON:
-"""
-
-    def build_factcheck_fallback_prompt(self, claim):
-        return f"""
-You are a professional fact-checker.
-
-The internal dataset was insufficient.
-Evaluate the following CLAIM using general, widely accepted information.
-Be cautious and conservative in your judgment.
-
-Return your answer STRICTLY as valid JSON with this schema:
-{{
-  "verdict": one of ["true", "very likely true", "uncertain", "very likely false", "false"],
-  "probability": number between 0 and 1,
-  "explanation": short factual justification,
-  "based_on": "general_knowledge"
-}}
-
-CLAIM:
-{claim}
-
-JSON:
-"""
-
-    # -----------------------
-    # MAIN ENTRY POINT
-    # -----------------------
-
-    def send_message(self, claim: str) -> dict:
         start = time.perf_counter()
-
-        context_chunks = self.rag.retrieve_context(claim, top_k_docs=5)
-        context_chars = sum(len(c) for c in context_chunks)
-        RAG_CONTEXT_CHARS.observe(context_chars)
-
-        if is_context_sufficient(context_chunks):
-            prompt = self.build_factcheck_rag_prompt(claim, context_chunks)
-        else:
-            prompt = self.build_factcheck_fallback_prompt(claim)
-
-        response = self.client.models.generate_content(
-            model=self.model, contents=prompt
-        )
-
+        response = self.client.models.generate_content(model=self.model, contents=prompt)
         LLM_LATENCY.observe(time.perf_counter() - start)
+        logger.info(f"Gemini explanation generated in {time.perf_counter() - start:.2f}s")
+        return response.text.strip()
 
-        try:
-            logger.info(f"LLM response: {response.text}")
-            parsed_response = extract_json_from_response(response.text)
-            RETRIEVAL_COUNTER.labels(
-                source=parsed_response.get("based_on", "unknown")
-            ).inc()
-            return parsed_response
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(
-                f"Failed to parse LLM response: {response.text[:500]}... Error: {str(e)}"
-            )
-            RETRIEVAL_COUNTER.labels(source="error").inc()
-            return {
-                "verdict": "uncertain",
-                "probability": 0.0,
-                "explanation": "Model returned invalid output.",
-                "based_on": "error",
-            }
+    # kept for backward compatibility — not used by the API anymore
+    def send_message(self, claim: str) -> dict:
+        explanation = self.explain(claim, verdict="uncertain", probability=0.5)
+        return {"verdict": "uncertain", "probability": 0.5, "explanation": explanation, "based_on": "gemini"}

@@ -1,0 +1,8 @@
+model_training:
+  vocab_size: 5000
+  max_len: 200
+  embedding_dim: 128
+  epochs: 10
+  batch_size: 64
+  model_path: "data/06_models/lstm_model.keras"
+  tokenizer_path: "data/06_models/lstm_tokenizer.pkl"
