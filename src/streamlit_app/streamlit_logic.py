@@ -140,6 +140,70 @@ def fake_real_distribution(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+# ── Emotion analytics ─────────────────────────────────────────────────────
+
+def get_emotion_posts() -> pd.DataFrame:
+    """Fetch emotion-classified posts from MongoDB."""
+    collection = mongo.use_collection("emotion_posts")
+    df = pd.DataFrame(
+        list(
+            collection.find(
+                {},
+                {
+                    "_id": 0,
+                    "unique_id": 1,
+                    "username": 1,
+                    "category": 1,
+                    "emotion": 1,
+                    "emotion_score": 1,
+                    "classified_at": 1,
+                },
+            )
+        )
+    )
+    if df.empty:
+        return df
+    df["classified_at"] = pd.to_datetime(df["classified_at"], utc=True)
+    return df
+
+
+def emotion_distribution(df: pd.DataFrame) -> pd.DataFrame:
+    """Count posts per emotion label, sorted by frequency."""
+    if df.empty or "emotion" not in df.columns:
+        return pd.DataFrame(columns=["emotion", "count"])
+    return (
+        df.groupby("emotion")
+        .size()
+        .reset_index(name="count")
+        .sort_values("count", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def emotion_by_category(df: pd.DataFrame) -> pd.DataFrame:
+    """Post counts broken down by emotion × category (for heatmap)."""
+    if df.empty or "emotion" not in df.columns or "category" not in df.columns:
+        return pd.DataFrame(columns=["category", "emotion", "count"])
+    return (
+        df.groupby(["category", "emotion"])
+        .size()
+        .reset_index(name="count")
+    )
+
+
+def avg_emotion_score(df: pd.DataFrame) -> pd.DataFrame:
+    """Mean BERT confidence score per emotion (model certainty)."""
+    if df.empty:
+        return pd.DataFrame(columns=["emotion", "avg_score"])
+    return (
+        df.groupby("emotion")["emotion_score"]
+        .mean()
+        .reset_index(name="avg_score")
+        .sort_values("avg_score", ascending=False)
+        .round({"avg_score": 3})
+    )
+
+
 # ── Energy monitoring ──────────────────────────────────────────────────────
 
 def get_energy_df() -> pd.DataFrame:

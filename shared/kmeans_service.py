@@ -6,6 +6,8 @@ Loaded lazily on first call to avoid slow startup.
 import logging
 import pickle
 import re
+import string
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -51,12 +53,33 @@ class KMeansService:
     def _preprocess(self, text: str) -> str:
         text = str(text).lower()
         text = re.sub(r"http\S+|www\S+", "", text)
-        text = re.sub(r"[^a-z\s]", "", text)
+        text = re.sub(r"@\w+", "", text)
+        text = re.sub(r"#\w+", "", text)
+        text = re.sub(
+            "[\U0001f600-\U0001f64f\U0001f300-\U0001f5ff"
+            "\U0001f680-\U0001f6ff\U0001f1e0-\U0001f1ff]+",
+            "",
+            text,
+            flags=re.UNICODE,
+        )
+        text = text.translate(str.maketrans("", "", string.punctuation))
+        text = unicodedata.normalize("NFKD", text)
+        text = text.encode("ascii", "ignore").decode("utf-8")
         return re.sub(r"\s+", " ", text).strip()
 
     def classify(self, text: str) -> dict:
         cleaned = self._preprocess(text)
         vec = self._vectorizer.transform([cleaned])
+
+        if vec.nnz == 0:
+            # No vocabulary overlap with training data — distances are constant
+            return {
+                "verdict": "uncertain",
+                "probability": 0.5,
+                "based_on": "kmeans",
+                "cluster": -1,
+            }
+
         label = int(self._km.predict(vec)[0])
 
         distances = self._km.transform(vec)[0]

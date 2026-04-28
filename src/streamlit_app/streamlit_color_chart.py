@@ -1,36 +1,44 @@
 class ColorChart:
-    """Pastel visionOS glassmorphism palette — mobile-first."""
+    """Dark glassmorphism — Vision OS inspired, premium dark."""
 
-    # Backgrounds
-    BG_GRADIENT = "linear-gradient(150deg, #cfe0ff 0%, #eef2ff 45%, #e2d9ff 100%)"
-    GLASS_BG = "rgba(255, 255, 255, 0.72)"
-    GLASS_BORDER = "rgba(255, 255, 255, 0.92)"
-    GLASS_SHADOW = "0 8px 32px rgba(110, 120, 200, 0.10), 0 2px 8px rgba(110, 120, 200, 0.06)"
+    # Core background
+    BG_BASE = "#050510"
+    BG_GRADIENT = "linear-gradient(135deg, #050510 0%, #0d0d2b 50%, #050510 100%)"
+
+    # Glass — ultra-dark frosted
+    GLASS_BG = "rgba(255, 255, 255, 0.04)"
+    GLASS_BORDER = "rgba(255, 255, 255, 0.08)"
+    GLASS_SHADOW = (
+        "0 8px 32px rgba(0,0,0,0.55), "
+        "0 2px 8px rgba(0,0,0,0.35), "
+        "inset 0 1px 0 rgba(255,255,255,0.06)"
+    )
 
     # Text
-    TEXT_MAIN = "#2c2c3a"
-    TEXT_MUTED = "#7a7a90"
-    TEXT_SUBTLE = "#b0b0c4"
+    TEXT_MAIN = "#e8e8f8"
+    TEXT_MUTED = "#7878a0"
+    TEXT_SUBTLE = "#44445a"
 
-    # Accent — pastel periwinkle/indigo
-    ACCENT_PRIMARY = "#7b9cf4"
-    ACCENT_SOFT = "rgba(123, 156, 244, 0.15)"
-    ACCENT_BORDER = "rgba(123, 156, 244, 0.38)"
+    # Accent — electric violet
+    ACCENT_PRIMARY = "#a78bfa"
+    ACCENT_SOFT = "rgba(167, 139, 250, 0.10)"
+    ACCENT_BORDER = "rgba(167, 139, 250, 0.22)"
+    ACCENT_GLOW = "0 0 24px rgba(167,139,250,0.30)"
 
-    # Semantic — pastel
-    SUCCESS_COLOR = "#6ee7b7"   # pastel mint
-    WARNING_COLOR = "#fcd34d"   # pastel yellow
-    DANGER_COLOR = "#fca5a5"    # pastel rose
-    YELLOW = "#fcd34d"
+    # Semantic
+    SUCCESS_COLOR = "#34d399"
+    WARNING_COLOR = "#fbbf24"
+    DANGER_COLOR  = "#f87171"
+    YELLOW        = "#fbbf24"
 
-    # Verdict scale — pastel
+    # Verdict scale
     VERDICT_COLORS = {
-        "true": "#6ee7b7",
-        "very likely true": "#86efac",
-        "uncertain": "#fcd34d",
-        "very likely false": "#fdba74",
-        "false": "#fca5a5",
-        "error": "#fca5a5",
+        "true":             "#34d399",
+        "very likely true": "#6ee7b7",
+        "uncertain":        "#fbbf24",
+        "very likely false":"#fb923c",
+        "false":            "#f87171",
+        "error":            "#f87171",
     }
 
     @classmethod

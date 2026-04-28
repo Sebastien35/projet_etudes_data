@@ -29,7 +29,7 @@ class GeminiService(LLMInterface):
         label = "real news" if is_real else "fake news"
 
         prompt = f"""You are a fact-checker assistant.
-A KMeans clustering model classified the following claim as {label.upper()} with {confidence_pct}% confidence (verdict: "{verdict}").
+A KMeans + Ollama (llama3.2:3b) pipeline classified the following claim as {label.upper()} with {confidence_pct}% confidence (verdict: "{verdict}").
 
 In 2-3 sentences, explain what signals in the claim support this classification.
 Be factual and concise. Do not repeat the verdict label.

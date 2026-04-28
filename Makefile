@@ -51,13 +51,17 @@ run2:
 run3:
 	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=vectorisation
 
+.PHONY: run4
+run4:
+	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=emotion_classification
+
 .PHONY: web
 web:
-	streamlit run src/streamlit_app	/streamlit_app.py
+	PYTHONPATH=. streamlit run src/streamlit_app/streamlit_app.py
 
 .PHONY: api
 api:
-	uvicorn src.api.api:app --host 0.0.0.0 --port 8080
+	PYTHONPATH=. uvicorn src.api.api:app --host 0.0.0.0 --port 8080
 
 .PHONY: quickstart
 quickstart: install-all run3 web api

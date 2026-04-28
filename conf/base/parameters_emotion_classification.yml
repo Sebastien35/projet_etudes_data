@@ -1,0 +1,9 @@
+emotion_classification:
+  # DistilRoBERTa fine-tuned on 6 datasets covering Ekman's 7 basic emotions:
+  # anger, disgust, fear, joy, neutral, sadness, surprise
+  # Model card: https://huggingface.co/j-hartmann/emotion-english-distilroberta-base
+  model_name: "j-hartmann/emotion-english-distilroberta-base"
+  # Posts are short — 128 tokens covers the vast majority of Bluesky content
+  max_length: 128
+  # Reduce if OOM on CPU; increase for faster throughput if RAM allows
+  batch_size: 16

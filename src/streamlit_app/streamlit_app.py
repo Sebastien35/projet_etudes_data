@@ -2,11 +2,13 @@ import altair as alt
 import streamlit as st
 from streamlit_color_chart import ColorChart
 from streamlit_logic import (
+    avg_emotion_score,
+    emotion_by_category,
+    emotion_distribution,
     energy_by_node,
     energy_by_pipeline,
     energy_timeline,
-    fake_real_distribution,
-    get_classified_posts,
+    get_emotion_posts,
     get_energy_df,
     get_posts,
     posts_per_hour,
@@ -25,80 +27,124 @@ st.set_page_config(
 
 C = ColorChart
 
-# ── Global CSS (mobile-first) ──────────────────────────────────────────────
+# ── Global CSS ─────────────────────────────────────────────────────────────
 st.markdown(
     f"""
 <style>
-/* ─ Fonts ────────────────────────────────────────────────────────────── */
+/* ─ Fonts ─────────────────────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 html, body, [class*="css"] {{
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
 }}
 
-/* ─ Hide toolbar / status widget ─────────────────────────────────────── */
+/* ─ Hide toolbar / status / sidebar / header ──────────────────────────── */
 [data-testid="stToolbar"],
-[data-testid="stStatusWidget"] {{
-    display: none !important;
-}}
+[data-testid="stStatusWidget"] {{ display: none !important; }}
+[data-testid="collapsedControl"],
+section[data-testid="stSidebar"] {{ display: none !important; }}
+.stAppHeader {{ display: none !important; }}
 
-/* ─ Background ───────────────────────────────────────────────────────── */
+/* ─ Dark base — aurora shows through transparent stApp ───────────────── */
+body {{
+    background: {C.BG_BASE} !important;
+    overflow-x: hidden;
+}}
 .stApp {{
-    background: {C.BG_GRADIENT};
+    background: transparent !important;
     min-height: 100vh;
 }}
 
-/* ─ Pastel tint on select / multiselect ──────────────────────────────── */
+/* ─ Aurora orbs ───────────────────────────────────────────────────────── */
+#aurora-bg {{
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}}
+.aurora-orb {{
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform;
+}}
+.aurora-1 {{
+    width: 85vmin; height: 85vmin;
+    background: radial-gradient(circle at center, rgba(124,58,237,0.48) 0%, transparent 65%);
+    filter: blur(90px);
+    top: -25%; left: -18%;
+    animation: af1 24s ease-in-out infinite alternate;
+}}
+.aurora-2 {{
+    width: 72vmin; height: 72vmin;
+    background: radial-gradient(circle at center, rgba(37,99,235,0.38) 0%, transparent 65%);
+    filter: blur(85px);
+    top: 8%; right: -12%;
+    animation: af2 31s ease-in-out infinite alternate;
+}}
+.aurora-3 {{
+    width: 62vmin; height: 62vmin;
+    background: radial-gradient(circle at center, rgba(6,182,212,0.28) 0%, transparent 65%);
+    filter: blur(75px);
+    bottom: -18%; left: 18%;
+    animation: af3 20s ease-in-out infinite alternate;
+}}
+.aurora-4 {{
+    width: 48vmin; height: 48vmin;
+    background: radial-gradient(circle at center, rgba(168,85,247,0.32) 0%, transparent 65%);
+    filter: blur(65px);
+    top: 42%; left: 42%;
+    animation: af4 38s ease-in-out infinite alternate;
+}}
+@keyframes af1 {{ to {{ transform: translate(22vw, 16vh) scale(1.14) rotate(8deg);  }} }}
+@keyframes af2 {{ to {{ transform: translate(-20vw, -12vh) scale(0.88) rotate(-6deg); }} }}
+@keyframes af3 {{ to {{ transform: translate(12vw, -22vh) scale(1.22) rotate(5deg);  }} }}
+@keyframes af4 {{ to {{ transform: translate(-10vw, 9vh) scale(1.1) rotate(-10deg);  }} }}
+
+/* ─ Select / input base ───────────────────────────────────────────────── */
 [data-baseweb="select"] > div,
 [data-baseweb="input"] > div {{
-    background: rgba(200, 218, 255, 0.35) !important;
-    border-color: {C.ACCENT_BORDER} !important;
+    background: rgba(255,255,255,0.05) !important;
+    border-color: {C.GLASS_BORDER} !important;
     border-radius: 12px !important;
+    color: {C.TEXT_MAIN} !important;
 }}
 
-/* ─ Pastel spinner ───────────────────────────────────────────────────── */
+/* ─ Spinner ───────────────────────────────────────────────────────────── */
 [data-testid="stSpinner"] > div {{
     border-top-color: {C.ACCENT_PRIMARY} !important;
 }}
 
-/* ─ Pastel progress bar ──────────────────────────────────────────────── */
+/* ─ Progress bar ──────────────────────────────────────────────────────── */
 [data-testid="stProgress"] > div > div {{
-    background: linear-gradient(90deg, #b5ccff, #c9b8ff) !important;
+    background: linear-gradient(90deg, #7c3aed, #a78bfa) !important;
     border-radius: 99px !important;
 }}
 
-/* ─ Pastel info / warning / error alerts ─────────────────────────────── */
+/* ─ Alerts ────────────────────────────────────────────────────────────── */
 [data-testid="stAlert"][kind="info"] {{
-    background: rgba(180, 210, 255, 0.40) !important;
-    border-color: #93c5fd !important;
+    background: rgba(59,130,246,0.12) !important;
+    border-color: rgba(59,130,246,0.28) !important;
     border-radius: 14px !important;
 }}
 [data-testid="stAlert"][kind="warning"] {{
-    background: rgba(253, 230, 138, 0.40) !important;
-    border-color: #fcd34d !important;
+    background: rgba(251,191,36,0.10) !important;
+    border-color: rgba(251,191,36,0.28) !important;
     border-radius: 14px !important;
 }}
 [data-testid="stAlert"][kind="error"] {{
-    background: rgba(252, 165, 165, 0.40) !important;
-    border-color: #fca5a5 !important;
+    background: rgba(248,113,113,0.12) !important;
+    border-color: rgba(248,113,113,0.28) !important;
     border-radius: 14px !important;
 }}
 [data-testid="stAlert"][kind="success"] {{
-    background: rgba(110, 231, 183, 0.35) !important;
-    border-color: #6ee7b7 !important;
+    background: rgba(52,211,153,0.10) !important;
+    border-color: rgba(52,211,153,0.28) !important;
     border-radius: 14px !important;
 }}
 
-/* ─ Hide sidebar toggle ──────────────────────────────────────────────── */
-[data-testid="collapsedControl"] {{ display: none !important; }}
-section[data-testid="stSidebar"] {{ display: none !important; }}
-
-/* ─ Header — hidden ──────────────────────────────────────────────────── */
-.stAppHeader {{
-    display: none !important;
-}}
-
-/* ─ Main container — mobile first ───────────────────────────────────── */
+/* ─ Main container ────────────────────────────────────────────────────── */
 .block-container {{
     padding: 1rem 0.9rem 5rem !important;
     max-width: 100% !important;
@@ -112,24 +158,25 @@ section[data-testid="stSidebar"] {{ display: none !important; }}
 @media (min-width: 1024px) {{
     .block-container {{
         padding: 2rem 2rem 3rem !important;
-        max-width: 860px !important;
+        max-width: 880px !important;
     }}
 }}
 
-/* ─ Headings ─────────────────────────────────────────────────────────── */
-h1 {{ color: {C.TEXT_MAIN}; font-weight: 700; letter-spacing: -0.4px; font-size: 1.5rem; }}
+/* ─ Headings ──────────────────────────────────────────────────────────── */
+h1 {{ color: {C.TEXT_MAIN}; font-weight: 700; letter-spacing: -0.5px; font-size: 1.5rem; }}
 h2 {{ color: {C.TEXT_MAIN}; font-weight: 600; font-size: 1.15rem; }}
 h3 {{ color: {C.TEXT_MAIN}; font-weight: 600; font-size: 1rem; }}
+p, li, span {{ color: {C.TEXT_MUTED}; }}
 
-/* ─ Glass card ───────────────────────────────────────────────────────── */
+/* ─ Glass card ────────────────────────────────────────────────────────── */
 .glass-card {{
     background: {C.GLASS_BG};
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
     border-radius: 20px;
     border: 1px solid {C.GLASS_BORDER};
     box-shadow: {C.GLASS_SHADOW};
-    padding: 1.1rem 1.1rem;
+    padding: 1.1rem;
     margin-bottom: 0.85rem;
 }}
 @media (min-width: 640px) {{
@@ -139,47 +186,53 @@ h3 {{ color: {C.TEXT_MAIN}; font-weight: 600; font-size: 1rem; }}
     }}
 }}
 
-/* ─ Stat cards ───────────────────────────────────────────────────────── */
+/* ─ Metric cards ──────────────────────────────────────────────────────── */
 [data-testid="metric-container"] {{
     background: {C.GLASS_BG} !important;
-    backdrop-filter: blur(16px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
-    border-radius: 16px !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border-radius: 18px !important;
     border: 1px solid {C.GLASS_BORDER} !important;
     box-shadow: {C.GLASS_SHADOW} !important;
-    padding: 0.85rem 1rem !important;
+    padding: 0.9rem 1rem !important;
+    transition: border-color 0.2s ease !important;
+}}
+[data-testid="metric-container"]:hover {{
+    border-color: {C.ACCENT_BORDER} !important;
 }}
 [data-testid="metric-container"] [data-testid="stMetricValue"] {{
     color: {C.TEXT_MAIN} !important;
     font-weight: 700 !important;
-    font-size: 1.5rem !important;
+    font-size: 1.6rem !important;
+    letter-spacing: -0.5px !important;
 }}
 [data-testid="metric-container"] [data-testid="stMetricLabel"] {{
     color: {C.TEXT_MUTED} !important;
-    font-size: 0.75rem !important;
+    font-size: 0.72rem !important;
     font-weight: 500 !important;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
 }}
 
-/* ─ Buttons ──────────────────────────────────────────────────────────── */
+/* ─ Buttons ───────────────────────────────────────────────────────────── */
 .stButton > button {{
     background: {C.ACCENT_SOFT} !important;
     color: {C.ACCENT_PRIMARY} !important;
     border: 1px solid {C.ACCENT_BORDER} !important;
     border-radius: 14px !important;
     font-weight: 500 !important;
-    font-size: 0.9rem !important;
+    font-size: 0.88rem !important;
     min-height: 44px !important;
     padding: 0.55rem 1.2rem !important;
-    transition: all 0.18s ease !important;
+    transition: all 0.20s ease !important;
     width: 100% !important;
+    letter-spacing: 0.01em;
 }}
 .stButton > button:hover {{
-    background: rgba(123,156,244,0.22) !important;
+    background: rgba(167,139,250,0.16) !important;
     border-color: {C.ACCENT_PRIMARY} !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(123,156,244,0.22) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: {C.ACCENT_GLOW} !important;
 }}
 .stButton > button:active {{
     transform: translateY(0) !important;
@@ -187,24 +240,30 @@ h3 {{ color: {C.TEXT_MAIN}; font-weight: 600; font-size: 1rem; }}
 
 /* ─ Chat messages ────────────────────────────────────────────────────── */
 [data-testid="stChatMessage"] {{
-    background: rgba(255,255,255,0.65) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(255,255,255,0.90) !important;
-    box-shadow: 0 2px 10px rgba(110,120,200,0.07) !important;
-    margin-bottom: 0.5rem !important;
-    padding: 0.7rem 0.9rem !important;
+    background: rgba(255,255,255,0.04) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.30) !important;
+    margin-bottom: 0.55rem !important;
+    padding: 0.75rem 1rem !important;
+    color: {C.TEXT_MAIN} !important;
 }}
 
 /* ─ Chat input ───────────────────────────────────────────────────────── */
 [data-testid="stChatInput"] {{
-    background: rgba(255,255,255,0.82) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
+    background: rgba(255,255,255,0.05) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
     border-radius: 18px !important;
-    border: 1px solid rgba(255,255,255,0.92) !important;
-    box-shadow: 0 4px 20px rgba(110,120,200,0.10) !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35), 0 0 0 0 rgba(167,139,250,0) !important;
+    transition: box-shadow 0.2s ease !important;
+}}
+[data-testid="stChatInput"]:focus-within {{
+    border-color: {C.ACCENT_BORDER} !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35), {C.ACCENT_GLOW} !important;
 }}
 [data-testid="stChatInput"] textarea {{
     color: {C.TEXT_MAIN} !important;
@@ -215,24 +274,28 @@ h3 {{ color: {C.TEXT_MAIN}; font-weight: 600; font-size: 1rem; }}
 
 /* ─ Text inputs ──────────────────────────────────────────────────────── */
 .stTextInput input, .stTextArea textarea {{
-    background: rgba(255,255,255,0.78) !important;
+    background: rgba(255,255,255,0.05) !important;
     border-radius: 14px !important;
-    border: 1px solid rgba(255,255,255,0.88) !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
     color: {C.TEXT_MAIN} !important;
     font-size: 0.95rem !important;
     min-height: 44px !important;
-    box-shadow: 0 2px 8px rgba(110,120,200,0.06) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.20) !important;
+}}
+.stTextInput input:focus, .stTextArea textarea:focus {{
+    border-color: {C.ACCENT_BORDER} !important;
+    box-shadow: {C.ACCENT_GLOW} !important;
 }}
 
-/* ─ Tabs ─────────────────────────────────────────────────────────────── */
+/* ─ Tabs ──────────────────────────────────────────────────────────────── */
 [data-baseweb="tab-list"] {{
-    background: rgba(255,255,255,0.55) !important;
-    backdrop-filter: blur(12px) !important;
+    background: rgba(255,255,255,0.04) !important;
+    backdrop-filter: blur(20px) !important;
     border-radius: 16px !important;
-    border: 1px solid rgba(255,255,255,0.85) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
     padding: 0.2rem !important;
     gap: 0.1rem !important;
-    box-shadow: 0 2px 8px rgba(110,120,200,0.07) !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.30) !important;
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
 }}
@@ -241,62 +304,97 @@ h3 {{ color: {C.TEXT_MAIN}; font-weight: 600; font-size: 1rem; }}
     font-weight: 500 !important;
     font-size: 0.85rem !important;
     color: {C.TEXT_MUTED} !important;
-    padding: 0.45rem 0.85rem !important;
+    padding: 0.45rem 0.9rem !important;
     min-height: 40px !important;
-    transition: all 0.15s ease !important;
+    transition: all 0.18s ease !important;
     white-space: nowrap !important;
 }}
 [aria-selected="true"][data-baseweb="tab"] {{
-    background: rgba(255,255,255,0.92) !important;
+    background: rgba(167,139,250,0.14) !important;
     color: {C.TEXT_MAIN} !important;
     font-weight: 600 !important;
-    box-shadow: 0 2px 8px rgba(110,120,200,0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(167,139,250,0.25), 0 2px 8px rgba(0,0,0,0.20) !important;
 }}
 
-/* ─ Expander ─────────────────────────────────────────────────────────── */
+/* ─ Expander ──────────────────────────────────────────────────────────── */
 [data-testid="stExpander"] {{
     background: {C.GLASS_BG} !important;
     border: 1px solid {C.GLASS_BORDER} !important;
     border-radius: 16px !important;
-    backdrop-filter: blur(12px) !important;
-}}
-
-/* ─ Bottom container ─────────────────────────────────────────────────── */
-.stBottomBlockContainer {{
-    background: rgba(230,238,255,0.88) !important;
     backdrop-filter: blur(20px) !important;
-    border-top: 1px solid rgba(255,255,255,0.85) !important;
 }}
 
-/* ─ Divider ──────────────────────────────────────────────────────────── */
+/* ─ Dataframe ─────────────────────────────────────────────────────────── */
+[data-testid="stDataFrame"] {{
+    border-radius: 16px !important;
+    overflow: hidden;
+}}
+[data-testid="stDataFrame"] iframe {{
+    border-radius: 16px;
+}}
+
+/* ─ Bottom container ──────────────────────────────────────────────────── */
+.stBottomBlockContainer {{
+    background: rgba(5,5,16,0.88) !important;
+    backdrop-filter: blur(28px) !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+}}
+
+/* ─ Divider ───────────────────────────────────────────────────────────── */
 hr {{
     border: none;
-    border-top: 1px solid rgba(110,120,200,0.10);
+    border-top: 1px solid rgba(255,255,255,0.06);
     margin: 0.85rem 0;
 }}
 
-/* ─ Scrollbar ────────────────────────────────────────────────────────── */
+/* ─ Scrollbar ─────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {{ width: 4px; height: 4px; }}
 ::-webkit-scrollbar-track {{ background: transparent; }}
 ::-webkit-scrollbar-thumb {{
-    background: rgba(110,120,200,0.18);
+    background: rgba(167,139,250,0.22);
     border-radius: 2px;
+}}
+
+/* ─ Selection ─────────────────────────────────────────────────────────── */
+::selection {{
+    background: rgba(167,139,250,0.30);
+    color: {C.TEXT_MAIN};
 }}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
+# ── Aurora animated background ─────────────────────────────────────────────
+st.markdown(
+    """
+<div id="aurora-bg" aria-hidden="true">
+    <div class="aurora-orb aurora-1"></div>
+    <div class="aurora-orb aurora-2"></div>
+    <div class="aurora-orb aurora-3"></div>
+    <div class="aurora-orb aurora-4"></div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 # ── Top nav header ─────────────────────────────────────────────────────────
 st.markdown(
     f"""
-<div style="display:flex; align-items:center; justify-content:space-between;
-            margin-bottom:1.25rem;">
+<div style="display:flex; align-items:center; gap:0.75rem;
+            margin-bottom:1.5rem; padding:0 0.15rem;">
+    <div style="
+        width:40px; height:40px; border-radius:12px; flex-shrink:0;
+        background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+        display:flex; align-items:center; justify-content:center;
+        font-size:1.2rem;
+        box-shadow: 0 0 28px rgba(124,58,237,0.45), 0 4px 12px rgba(0,0,0,0.4);
+    ">🔍</div>
     <div>
-        <div style="font-size:1.3rem; font-weight:700; color:{C.TEXT_MAIN};
-                    letter-spacing:-0.4px; line-height:1.2;">🔍 FakeShield</div>
-        <div style="font-size:0.72rem; color:{C.TEXT_MUTED}; margin-top:1px;">
+        <div style="font-size:1.25rem; font-weight:700; color:{C.TEXT_MAIN};
+                    letter-spacing:-0.5px; line-height:1.2;">FakeShield</div>
+        <div style="font-size:0.65rem; color:{C.TEXT_MUTED}; margin-top:1px;
+                    letter-spacing:0.10em; text-transform:uppercase;">
             Bluesky Intelligence Platform
         </div>
     </div>
@@ -305,39 +403,51 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Top-level navigation (mobile-friendly tabs)
 nav_tab1, nav_tab2, nav_tab3 = st.tabs(["  Fact-Check  ", "  Analytics  ", "  Energy  "])
 
 
-# ── Load data (cached) ─────────────────────────────────────────────────────
+# ── Load corpus data (cached 5 min) ────────────────────────────────────────
 @st.cache_data(ttl=300)
 def load_data():
     df = get_posts()
     if df.empty:
-        return df, None, None, None, None
-    df_classified = get_classified_posts()
+        return df, None, None, None
     return (
         df,
         top_users_per_category(df),
         trending_keywords(df),
         posts_per_hour(df),
-        fake_real_distribution(df_classified),
     )
 
 
-df_posts, df_category, df_trend, df_hour, df_fakenews = load_data()
+# ── Load emotion data (cached 5 min) ────────────────────────────────────────
+@st.cache_data(ttl=300)
+def load_emotion_data():
+    df = get_emotion_posts()
+    if df.empty:
+        return df, None, None, None
+    return (
+        df,
+        emotion_distribution(df),
+        emotion_by_category(df),
+        avg_emotion_score(df),
+    )
+
+
+df_posts, df_category, df_trend, df_hour = load_data()
+df_emotion, df_emo_dist, df_emo_cat, df_emo_score = load_emotion_data()
 has_data = df_posts is not None and not df_posts.empty
 
 
-# ── Altair theme helper ────────────────────────────────────────────────────
+# ── Altair dark-mode theme ─────────────────────────────────────────────────
 def glass_chart(chart):
     return (
         chart.configure_view(strokeWidth=0, fill="transparent")
         .configure_axis(
             labelColor=C.TEXT_MUTED,
             titleColor=C.TEXT_MUTED,
-            gridColor="rgba(110,120,200,0.08)",
-            domainColor="rgba(110,120,200,0.15)",
+            gridColor="rgba(255,255,255,0.05)",
+            domainColor="rgba(255,255,255,0.08)",
             labelFont="Inter, sans-serif",
             titleFont="Inter, sans-serif",
         )
@@ -346,6 +456,14 @@ def glass_chart(chart):
             titleColor=C.TEXT_MUTED,
             labelFont="Inter, sans-serif",
             titleFont="Inter, sans-serif",
+            fillColor="transparent",
+            strokeColor="rgba(255,255,255,0.08)",
+        )
+        .configure_title(
+            color=C.TEXT_MAIN,
+            font="Inter, sans-serif",
+            fontSize=13,
+            fontWeight=600,
         )
     )
 
@@ -357,12 +475,13 @@ with nav_tab1:
     st.markdown(
         f"""
     <div class="glass-card">
-        <div style="font-size:1.15rem; font-weight:700; color:{C.TEXT_MAIN};
-                    letter-spacing:-0.3px;">Fact-Check a Claim</div>
-        <div style="font-size:0.85rem; color:{C.TEXT_MUTED}; margin-top:3px;
-                    line-height:1.5;">
+        <div style="font-size:1.1rem; font-weight:700; color:{C.TEXT_MAIN};
+                    letter-spacing:-0.3px; margin-bottom:4px;">
+            Fact-Check a Claim
+        </div>
+        <div style="font-size:0.84rem; color:{C.TEXT_MUTED}; line-height:1.6;">
             Paste any post or headline — the model checks it against
-            the Bluesky corpus and gives a verdict.
+            the Bluesky corpus and returns a verdict.
         </div>
     </div>
     """,
@@ -372,7 +491,6 @@ with nav_tab1:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Chat history
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             if msg.get("is_html"):
@@ -380,7 +498,6 @@ with nav_tab1:
             else:
                 st.markdown(msg["content"])
 
-    # Input
     user_input = st.chat_input("Paste a claim, post, or headline…")
 
     if user_input:
@@ -393,58 +510,72 @@ with nav_tab1:
                 result = send_message_api(user_input)
 
             verdict = result["verdict"]
-            color = result["color"]
-            expl = result["explanation"]
-            prob = result["probability"]
-            source = result["based_on"]
+            color   = result["color"]
+            expl    = result["explanation"]
+            prob    = result["probability"]
+            source  = result["based_on"]
 
             source_label = {
-                "kmeans": "🟣 KMeans classifier",
-                "rag": "🔵 Bluesky corpus",
-                "general_knowledge": "🟡 General knowledge",
-                "error": "🔴 API error",
-            }.get(source, f"· {source}")
+                "kmeans":           "◆ KMeans classifier",
+                "rag":              "◆ Bluesky corpus",
+                "general_knowledge":"◆ General knowledge",
+                "error":            "◆ API error",
+            }.get(source, f"◆ {source}")
 
             prob_bar = ""
             if prob is not None:
                 pct = int(prob * 100)
                 prob_bar = f"""
-                <div style="margin:0.65rem 0 0.35rem;">
+                <div style="margin:0.75rem 0 0.4rem;">
                     <div style="display:flex; justify-content:space-between;
-                                font-size:0.75rem; color:{C.TEXT_MUTED};
-                                margin-bottom:5px;">
+                                font-size:0.73rem; color:{C.TEXT_MUTED};
+                                margin-bottom:6px; letter-spacing:0.04em;
+                                text-transform:uppercase;">
                         <span>Confidence</span><span>{pct}%</span>
                     </div>
-                    <div style="background:rgba(110,120,200,0.12); border-radius:99px;
-                                height:6px; overflow:hidden;">
+                    <div style="background:rgba(255,255,255,0.07); border-radius:99px;
+                                height:5px; overflow:hidden;">
                         <div style="width:{pct}%; height:100%;
-                                    background:{color};
-                                    border-radius:99px;">
+                                    background:linear-gradient(90deg, {color}88, {color});
+                                    border-radius:99px;
+                                    box-shadow: 0 0 8px {color}60;">
                         </div>
                     </div>
                 </div>"""
 
             html = f"""
-            <div style="background:rgba(255,255,255,0.60);
-                        border:1px solid rgba(255,255,255,0.90);
-                        border-radius:18px; padding:1rem 1.1rem;
-                        backdrop-filter:blur(14px);
-                        -webkit-backdrop-filter:blur(14px);">
-                <div style="display:inline-block; background:{color}30;
-                            border:1.5px solid {color}70; border-radius:99px;
-                            padding:0.2rem 0.9rem; font-size:0.78rem;
-                            font-weight:700; color:{C.TEXT_MAIN};
-                            letter-spacing:0.04em; text-transform:uppercase;">
+            <div style="
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.09);
+                border-radius: 18px;
+                padding: 1rem 1.15rem;
+                backdrop-filter: blur(24px);
+                -webkit-backdrop-filter: blur(24px);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.4),
+                            inset 0 1px 0 rgba(255,255,255,0.06);
+            ">
+                <div style="
+                    display: inline-flex; align-items: center; gap: 6px;
+                    background: {color}18;
+                    border: 1.5px solid {color}55;
+                    border-radius: 99px;
+                    padding: 0.22rem 0.9rem;
+                    font-size: 0.76rem; font-weight: 700;
+                    color: {color};
+                    letter-spacing: 0.06em; text-transform: uppercase;
+                    box-shadow: 0 0 14px {color}30;
+                ">
                     {verdict}
                 </div>
                 {prob_bar}
                 <div style="font-size:0.9rem; color:{C.TEXT_MAIN};
-                            line-height:1.65; margin-top:0.5rem;">
+                            line-height:1.7; margin-top:0.55rem;">
                     {expl}
                 </div>
-                <div style="font-size:0.72rem; color:{C.TEXT_SUBTLE};
+                <div style="font-size:0.70rem; color:{C.TEXT_SUBTLE};
                             margin-top:0.65rem; padding-top:0.55rem;
-                            border-top:1px solid rgba(110,120,200,0.10);">
+                            border-top:1px solid rgba(255,255,255,0.06);
+                            letter-spacing:0.04em;">
                     {source_label}
                 </div>
             </div>"""
@@ -457,15 +588,14 @@ with nav_tab1:
     if not st.session_state.messages:
         st.markdown(
             f"""
-        <div style="text-align:center; padding:2.5rem 0 1rem;
-                    color:{C.TEXT_SUBTLE}; font-size:0.88rem;">
+        <div style="text-align:center; padding:3rem 0 1.5rem;
+                    color:{C.TEXT_SUBTLE}; font-size:0.86rem; letter-spacing:0.02em;">
             ↑ Enter a claim above to get started
         </div>
         """,
             unsafe_allow_html=True,
         )
 
-    # Reload button
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
     if st.button("↺  Clear conversation", key="clear_chat"):
         st.session_state.messages = []
@@ -478,7 +608,7 @@ with nav_tab1:
 with nav_tab2:
     st.markdown(
         f"""
-    <div style="font-size:1.15rem; font-weight:700; color:{C.TEXT_MAIN};
+    <div style="font-size:1.1rem; font-weight:700; color:{C.TEXT_MAIN};
                 letter-spacing:-0.3px; margin-bottom:1rem;">
         Analytics
     </div>
@@ -489,9 +619,9 @@ with nav_tab2:
     if not has_data:
         st.markdown(
             f"""
-        <div class="glass-card" style="text-align:center; padding:2.5rem 1rem;">
-            <div style="font-size:2rem;">📭</div>
-            <div style="color:{C.TEXT_MUTED}; margin-top:0.5rem; font-size:0.9rem;">
+        <div class="glass-card" style="text-align:center; padding:3rem 1rem;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">📭</div>
+            <div style="color:{C.TEXT_MUTED}; font-size:0.9rem;">
                 No data yet — run the ingestion pipeline first.
             </div>
         </div>
@@ -500,7 +630,6 @@ with nav_tab2:
         )
         st.stop()
 
-    # ── Stat cards — 2×2 on mobile, 4×1 on wider screens ─────────────────
     top_kw = df_trend.iloc[0]["keyword"] if not df_trend.empty else "—"
 
     r1c1, r1c2 = st.columns(2)
@@ -519,12 +648,8 @@ with nav_tab2:
 
     st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
-    # ── Chart tabs ────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["Keywords", "Authors", "By Hour", "Emotions"]
-    )
+    tab1, tab2, tab3, tab4 = st.tabs(["Keywords", "Authors", "By Hour", "Emotions"])
 
-    # ── Tab 1: Keywords ───────────────────────────────────────────────────
     with tab1:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         base = alt.Chart(df_trend).encode(
@@ -535,7 +660,7 @@ with nav_tab2:
         chart = (
             base.mark_bar(
                 color=C.ACCENT_PRIMARY,
-                opacity=0.22,
+                opacity=0.20,
                 cornerRadiusTopRight=6,
                 cornerRadiusBottomRight=6,
             )
@@ -545,7 +670,6 @@ with nav_tab2:
         st.altair_chart(glass_chart(chart), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Tab 2: Top authors ────────────────────────────────────────────────
     with tab2:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         categories = df_category["category"].unique().tolist()
@@ -553,12 +677,12 @@ with nav_tab2:
             df_cat = df_category[df_category["category"] == cat].head(8)
             pie = (
                 alt.Chart(df_cat)
-                .mark_arc(innerRadius=45, outerRadius=90)
+                .mark_arc(innerRadius=48, outerRadius=92)
                 .encode(
                     theta=alt.Theta("post_count:Q"),
                     color=alt.Color(
                         "username:N",
-                        scale=alt.Scale(scheme="pastel1"),
+                        scale=alt.Scale(scheme="viridis"),
                         legend=alt.Legend(orient="bottom", labelLimit=120, columns=2),
                     ),
                     tooltip=["username:N", "post_count:Q"],
@@ -568,25 +692,18 @@ with nav_tab2:
             st.altair_chart(glass_chart(pie), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Tab 3: Posts by hour ──────────────────────────────────────────────
     with tab3:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         area = (
             alt.Chart(df_hour)
             .mark_area(
                 color=C.ACCENT_PRIMARY,
-                opacity=0.14,
+                opacity=0.12,
                 line={"color": C.ACCENT_PRIMARY, "strokeWidth": 2},
-                point=alt.OverlayMarkDef(
-                    color=C.ACCENT_PRIMARY, filled=True, size=55
-                ),
+                point=alt.OverlayMarkDef(color=C.ACCENT_PRIMARY, filled=True, size=55),
             )
             .encode(
-                x=alt.X(
-                    "hour:Q",
-                    title="Hour of day",
-                    axis=alt.Axis(tickCount=12, format="d"),
-                ),
+                x=alt.X("hour:Q", title="Hour of day", axis=alt.Axis(tickCount=12, format="d")),
                 y=alt.Y("count:Q", title="Posts"),
                 tooltip=["hour:Q", "count:Q"],
             )
@@ -595,52 +712,136 @@ with nav_tab2:
         st.altair_chart(glass_chart(area), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Tab 4: Fake vs Real ───────────────────────────────────────────────
     with tab4:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        if df_fakenews is not None and not df_fakenews.empty:
-            LABEL_COLORS = {"Real": "#6ee7b7", "Fake": "#fca5a5"}
-            color_range = [
-                LABEL_COLORS.get(lbl, C.ACCENT_PRIMARY)
-                for lbl in df_fakenews["label"].tolist()
-            ]
-            bars = (
-                alt.Chart(df_fakenews)
-                .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
-                .encode(
-                    y=alt.Y("label:N", sort="-x", title="", axis=alt.Axis(labelLimit=110)),
-                    x=alt.X("count:Q", title="Posts"),
-                    color=alt.Color(
-                        "label:N",
-                        scale=alt.Scale(
-                            domain=df_fakenews["label"].tolist(),
-                            range=color_range,
-                        ),
-                        legend=None,
-                    ),
-                    tooltip=["label:N", "count:Q"],
-                )
-                .properties(height=160)
-            )
-            st.altair_chart(glass_chart(bars), use_container_width=True)
-        else:
+        # Ekman palette — consistent across both charts
+        EMOTION_COLORS = {
+            "joy":      "#34d399",
+            "surprise": "#c084fc",
+            "neutral":  "#7878a0",
+            "fear":     "#fb923c",
+            "sadness":  "#60a5fa",
+            "anger":    "#f87171",
+            "disgust":  "#94a3b8",
+        }
+
+        if df_emo_dist is None or df_emo_dist.empty:
             st.markdown(
                 f"""
-            <div style="text-align:center; padding:2rem; color:{C.TEXT_MUTED};
-                        font-size:0.88rem;">
-                No classification data yet — run the vectorisation pipeline first.
+            <div class="glass-card" style="text-align:center; padding:2.5rem 1rem;">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">🧠</div>
+                <div style="color:{C.TEXT_MUTED}; font-size:0.88rem;">
+                    No emotion data yet — run the
+                    <code>emotion_classification</code> pipeline first.
+                </div>
             </div>
             """,
                 unsafe_allow_html=True,
             )
-        st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            emo_domain = df_emo_dist["emotion"].tolist()
+            emo_range  = [EMOTION_COLORS.get(e, C.ACCENT_PRIMARY) for e in emo_domain]
 
-    # ── Footer ────────────────────────────────────────────────────────────
+            # ── Top metric: dominant emotion ──────────────────────────────
+            dominant    = df_emo_dist.iloc[0]["emotion"].capitalize()
+            total_emoed = int(df_emo_dist["count"].sum())
+            ec1, ec2 = st.columns(2)
+            ec1.metric("Posts analysed", f"{total_emoed:,}")
+            ec2.metric("Dominant emotion", dominant)
+            st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+
+            # ── Chart 1: donut — overall emotion distribution ─────────────
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            donut = (
+                alt.Chart(df_emo_dist)
+                .mark_arc(innerRadius=55, outerRadius=110, stroke="rgba(0,0,0,0.15)", strokeWidth=1)
+                .encode(
+                    theta=alt.Theta("count:Q"),
+                    color=alt.Color(
+                        "emotion:N",
+                        scale=alt.Scale(domain=emo_domain, range=emo_range),
+                        legend=alt.Legend(
+                            orient="right",
+                            title=None,
+                            labelFontSize=12,
+                            symbolSize=120,
+                        ),
+                    ),
+                    tooltip=[
+                        alt.Tooltip("emotion:N", title="Emotion"),
+                        alt.Tooltip("count:Q", title="Posts"),
+                    ],
+                )
+                .properties(height=280, title="Emotion distribution")
+            )
+            st.altair_chart(glass_chart(donut), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # ── Chart 2: bar — avg BERT confidence per emotion ────────────
+            if df_emo_score is not None and not df_emo_score.empty:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                score_colors = [
+                    EMOTION_COLORS.get(e, C.ACCENT_PRIMARY)
+                    for e in df_emo_score["emotion"].tolist()
+                ]
+                conf_bar = (
+                    alt.Chart(df_emo_score)
+                    .mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6)
+                    .encode(
+                        y=alt.Y("emotion:N", sort="-x", title="",
+                                axis=alt.Axis(labelLimit=110)),
+                        x=alt.X("avg_score:Q", title="Avg BERT confidence",
+                                scale=alt.Scale(domain=[0, 1])),
+                        color=alt.Color(
+                            "emotion:N",
+                            scale=alt.Scale(
+                                domain=df_emo_score["emotion"].tolist(),
+                                range=score_colors,
+                            ),
+                            legend=None,
+                        ),
+                        tooltip=[
+                            alt.Tooltip("emotion:N", title="Emotion"),
+                            alt.Tooltip("avg_score:Q", title="Avg confidence", format=".3f"),
+                        ],
+                    )
+                    .properties(height=220, title="Average model confidence per emotion")
+                )
+                st.altair_chart(glass_chart(conf_bar), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # ── Chart 3: heatmap — emotion × category ─────────────────────
+            if df_emo_cat is not None and not df_emo_cat.empty:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                heatmap = (
+                    alt.Chart(df_emo_cat)
+                    .mark_rect(cornerRadius=4)
+                    .encode(
+                        x=alt.X("emotion:N", title="", axis=alt.Axis(labelAngle=-30)),
+                        y=alt.Y("category:N", title=""),
+                        color=alt.Color(
+                            "count:Q",
+                            scale=alt.Scale(scheme="purples"),
+                            legend=alt.Legend(title="Posts"),
+                        ),
+                        tooltip=[
+                            alt.Tooltip("category:N", title="Category"),
+                            alt.Tooltip("emotion:N",  title="Emotion"),
+                            alt.Tooltip("count:Q",    title="Posts"),
+                        ],
+                    )
+                    .properties(
+                        height=max(160, df_emo_cat["category"].nunique() * 42),
+                        title="Emotion breakdown by category",
+                    )
+                )
+                st.altair_chart(glass_chart(heatmap), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
     st.markdown(
         f"""
-    <div style="text-align:center; margin-top:2rem;
-                font-size:0.7rem; color:{C.TEXT_SUBTLE};">
-        M1 Data Science · 2024
+    <div style="text-align:center; margin-top:2.5rem;
+                font-size:0.68rem; color:{C.TEXT_SUBTLE}; letter-spacing:0.06em;">
+        M1 DATA SCIENCE · 2024
     </div>
     """,
         unsafe_allow_html=True,
@@ -653,7 +854,7 @@ with nav_tab2:
 with nav_tab3:
     st.markdown(
         f"""
-    <div style="font-size:1.15rem; font-weight:700; color:{C.TEXT_MAIN};
+    <div style="font-size:1.1rem; font-weight:700; color:{C.TEXT_MAIN};
                 letter-spacing:-0.3px; margin-bottom:1rem;">
         ⚡ Energy Report
     </div>
@@ -677,9 +878,9 @@ with nav_tab3:
     if df_energy.empty:
         st.markdown(
             f"""
-        <div class="glass-card" style="text-align:center; padding:2.5rem 1rem;">
-            <div style="font-size:2rem;">🔋</div>
-            <div style="color:{C.TEXT_MUTED}; margin-top:0.5rem; font-size:0.9rem;">
+        <div class="glass-card" style="text-align:center; padding:3rem 1rem;">
+            <div style="font-size:2.5rem; margin-bottom:0.5rem;">🔋</div>
+            <div style="color:{C.TEXT_MUTED}; font-size:0.9rem;">
                 No energy data yet — run a pipeline first.
             </div>
         </div>
@@ -687,11 +888,10 @@ with nav_tab3:
             unsafe_allow_html=True,
         )
     else:
-        # ── Summary cards ──────────────────────────────────────────────────
-        total_wh = df_energy["energy_wh"].sum()
+        total_wh  = df_energy["energy_wh"].sum()
         total_co2 = df_energy["co2_mg"].sum()
         total_runs = df_energy["run_id"].nunique()
-        heaviest = df_by_node.iloc[0]["node_name"] if not df_by_node.empty else "—"
+        heaviest  = df_by_node.iloc[0]["node_name"] if not df_by_node.empty else "—"
 
         c1, c2 = st.columns(2)
         c1.metric("Total Energy", f"{total_wh:.2f} Wh")
@@ -703,20 +903,18 @@ with nav_tab3:
 
         st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
-        # ── Pipeline colours ───────────────────────────────────────────────
+        # Neon pipeline colours for dark mode
         PIPELINE_COLORS = {
-            "ingest_from_bluesky": "#93c5fd",   # pastel blue
-            "nlp_transform":        "#d8b4fe",   # pastel purple
-            "vectorisation":        "#86efac",   # pastel green
-            "default":              "#fcd34d",   # pastel yellow
+            "ingest_from_bluesky": "#60a5fa",
+            "nlp_transform":        "#c084fc",
+            "vectorisation":        "#34d399",
+            "default":              "#fbbf24",
         }
 
-        # ── Chart tabs ─────────────────────────────────────────────────────
         etab1, etab2, etab3, etab4 = st.tabs(
             ["By Pipeline", "By Node", "Breakdown", "Timeline"]
         )
 
-        # ── Tab 1: Energy by pipeline ──────────────────────────────────────
         with etab1:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             p_colors = [
@@ -751,7 +949,6 @@ with nav_tab3:
             st.altair_chart(glass_chart(bar_pipeline), use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Tab 2: Energy by node ──────────────────────────────────────────
         with etab2:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             n_colors = [
@@ -787,24 +984,14 @@ with nav_tab3:
             st.altair_chart(glass_chart(bar_node), use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Tab 3: CPU / RAM / GPU breakdown per node ──────────────────────
         with etab3:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             breakdown = df_by_node[
                 ["node_name", "avg_cpu_wh", "avg_ram_wh", "avg_gpu_wh"]
-            ].melt(
-                id_vars="node_name",
-                var_name="component",
-                value_name="avg_wh",
-            )
+            ].melt(id_vars="node_name", var_name="component", value_name="avg_wh")
             breakdown["component"] = breakdown["component"].map(
                 {"avg_cpu_wh": "CPU", "avg_ram_wh": "RAM", "avg_gpu_wh": "GPU"}
             )
-            COMPONENT_COLORS = {
-                "CPU": "#93c5fd",
-                "RAM": "#d8b4fe",
-                "GPU": "#86efac",
-            }
             stacked = (
                 alt.Chart(breakdown)
                 .mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6)
@@ -815,7 +1002,7 @@ with nav_tab3:
                         "component:N",
                         scale=alt.Scale(
                             domain=["CPU", "RAM", "GPU"],
-                            range=["#93c5fd", "#d8b4fe", "#86efac"],
+                            range=["#60a5fa", "#c084fc", "#34d399"],
                         ),
                         legend=alt.Legend(title="Component", orient="bottom"),
                     ),
@@ -831,17 +1018,12 @@ with nav_tab3:
             st.altair_chart(glass_chart(stacked), use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Tab 4: Timeline ────────────────────────────────────────────────
         with etab4:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             if df_timeline is not None and not df_timeline.empty:
-                tl_colors = [
-                    PIPELINE_COLORS.get(p, C.ACCENT_PRIMARY)
-                    for p in df_timeline["pipeline_name"].tolist()
-                ]
                 scatter = (
                     alt.Chart(df_timeline)
-                    .mark_point(filled=True, size=80, opacity=0.75)
+                    .mark_point(filled=True, size=80, opacity=0.80)
                     .encode(
                         x=alt.X("timestamp:T", title="Date"),
                         y=alt.Y("total_wh:Q", title="Energy / run (Wh)"),
@@ -865,24 +1047,23 @@ with nav_tab3:
                 st.altair_chart(glass_chart(scatter), use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-        # ── Recent logs table ──────────────────────────────────────────────
         st.markdown(
             f"""
-        <div style="font-size:0.85rem; font-weight:600; color:{C.TEXT_MUTED};
-                    text-transform:uppercase; letter-spacing:0.05em;
-                    margin:1rem 0 0.5rem;">
+        <div style="font-size:0.78rem; font-weight:600; color:{C.TEXT_MUTED};
+                    text-transform:uppercase; letter-spacing:0.07em;
+                    margin:1.25rem 0 0.6rem;">
             Recent runs
         </div>
         """,
             unsafe_allow_html=True,
         )
         display_cols = {
-            "timestamp": "Time",
+            "timestamp":   "Time",
             "pipeline_name": "Pipeline",
-            "node_name": "Node",
-            "energy_wh": "Energy (Wh)",
-            "co2_mg": "CO₂ (mg)",
-            "duration_s": "Duration (s)",
+            "node_name":   "Node",
+            "energy_wh":   "Energy (Wh)",
+            "co2_mg":      "CO₂ (mg)",
+            "duration_s":  "Duration (s)",
         }
         df_display = (
             df_energy[list(display_cols.keys())]
@@ -890,9 +1071,9 @@ with nav_tab3:
             .rename(columns=display_cols)
             .assign(**{
                 "Energy (Wh)": lambda d: d["Energy (Wh)"].map("{:.4f}".format),
-                "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map("{:.3f}".format),
-                "Duration (s)": lambda d: d["Duration (s)"].map("{:.2f}".format),
-                "Time": lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
+                "CO₂ (mg)":    lambda d: d["CO₂ (mg)"].map("{:.3f}".format),
+                "Duration (s)":lambda d: d["Duration (s)"].map("{:.2f}".format),
+                "Time":        lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
             })
         )
         st.dataframe(df_display, use_container_width=True, hide_index=True)

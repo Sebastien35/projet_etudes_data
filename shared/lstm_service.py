@@ -37,7 +37,6 @@ class LSTMService:
         if not Path(model_path).exists():
             raise FileNotFoundError(
                 f"LSTM model not found at {model_path}. "
-                "Run: kedro run --pipeline model_training"
             )
         self._model = load_model(model_path)
         with open(tokenizer_path, "rb") as f:

@@ -1,8 +1,6 @@
 import logging
 
 from kedro.framework.hooks import hook_impl
-from pyspark import SparkConf
-from pyspark.sql import SparkSession
 from shared.energy_service import save_energy_log
 
 logger = logging.getLogger(__name__)
@@ -72,6 +70,9 @@ class SparkHooks:
     def after_context_created(self, context) -> None:
         """Initialises a SparkSession using the config defined in project's conf folder (if available)."""
         try:
+            from pyspark import SparkConf
+            from pyspark.sql import SparkSession
+
             # Look for the spark config (will raise KeyError if not present)
             parameters = context.config_loader.get("spark", None)
             if parameters is None:

@@ -2,11 +2,31 @@ FROM apache/airflow:2.8.4-python3.10
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+USER root
+
+RUN uv pip install --system --no-cache \
+    "pymysql" \
+    "kedro~=1.0.0" \
+    "kedro-airflow" \
+    "kedro-datasets[pandas-csvdataset,pandas-exceldataset]" \
+    "pymongo" \
+    "python-dotenv" \
+    "nltk" \
+    "atproto==0.0.63" \
+    "scikit-learn" \
+    "pandas" \
+    "numpy" \
+    "codecarbon" \
+    "transformers>=4.40.0"
+
+# CPU-only PyTorch — separate install to scope the --index-url
+# Avoids pulling the ~2 GB CUDA wheels that the default PyPI index serves
+RUN uv pip install --system --no-cache \
+    "torch>=2.0.0" \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# The base image ships an old typing_extensions in the airflow user's ~/.local,
+# which takes precedence over system-site and breaks pydantic-core's Sentinel
+# import. Upgrade it in user-site so it shadows the stale copy.
 USER airflow
-
-COPY --chown=airflow:airflow pyproject.toml uv.lock README.md ./
-
-# Export exact pinned versions from the lock file (no re-resolution, avoids
-# conflicts with Airflow's pre-installed packages) then install them.
-RUN uv export --frozen --no-dev --no-emit-project -o /tmp/requirements.txt \
-    && uv pip install --system --no-cache -r /tmp/requirements.txt
+RUN pip install --upgrade "typing_extensions>=4.12.0"
