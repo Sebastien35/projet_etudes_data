@@ -18,16 +18,16 @@ logger.setLevel(logging.INFO)
 
 
 def get_client() -> Client:
-    BSKY_PWD = os.getenv("BSKY_APP_PASSWORD")
-    BSKY_USERNAME = os.getenv("BSKY_USERNAME")
+    bsky_pwd = os.getenv("BSKY_APP_PASSWORD")
+    bsky_username = os.getenv("BSKY_USERNAME")
 
-    if not BSKY_PWD or not BSKY_USERNAME:
+    if not bsky_pwd or not bsky_username:
         raise ValueError(
-            "BSKY_PWD and BSKY_USERNAME must be set in environment variables"
+            "bsky_pwd and bsky_username must be set in environment variables"
         )
 
     client = Client()
-    client.login(BSKY_USERNAME, BSKY_PWD)
+    client.login(bsky_username, bsky_pwd)
 
     return client
 

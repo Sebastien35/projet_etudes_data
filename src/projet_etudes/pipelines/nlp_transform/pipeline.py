@@ -8,7 +8,7 @@ from kedro.pipeline import Node, Pipeline
 from .nodes import clean_text, get_posts_to_treat, normalize_text, save_to_db
 
 
-def create_pipeline(**kwargs) -> Pipeline:
+def create_pipeline(**_kwargs) -> Pipeline:
     return Pipeline(
         [
             Node(

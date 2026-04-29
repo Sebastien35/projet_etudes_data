@@ -25,7 +25,7 @@ HOOKS = (SparkHooks(), EnergyHook())
 # Class that manages how configuration is loaded.
 from kedro.config import OmegaConfigLoader  # noqa: E402
 
-CONFIG_LOADER_CLASS = OmegaConfigLoader
+CONFIG_LOADER_CLASS = OmegaConfigLoader  # pylint: disable=invalid-name
 # Keyword arguments to pass to the `CONFIG_LOADER_CLASS` constructor.
 CONFIG_LOADER_ARGS = {
     "base_env": "base",

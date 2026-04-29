@@ -120,11 +120,38 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["kedro_operator", "shared", "projet_etudes"]
 
+[tool.pylint.main]
+init-hook = 'import sys; sys.path.insert(0, "."); sys.path.insert(0, "src/streamlit_app")'
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-many-lines",
+    "duplicate-code",
+    "too-few-public-methods",
+    "import-outside-toplevel",
+    "broad-exception-caught",
+    "redefined-outer-name",
+    "logging-fstring-interpolation",
+    "wrong-import-position",
+    "wrong-import-order",
+    "line-too-long",
+    "unused-argument",
+]
+
+[tool.pylint.design]
+max-args = 8
+max-positional-arguments = 8
+max-locals = 20
+
 [tool.kedro_telemetry]
 project_id = "b02942fb0e324d578b73d8185cd058d2"
 
 [dependency-groups]
 dev = [
     "isort>=8.0.1",
+    "pylint>=4.0.5",
     "ruff>=0.12.12",
 ]

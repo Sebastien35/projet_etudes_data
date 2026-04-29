@@ -106,7 +106,7 @@ def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
 
 
 def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
-    BLACKLIST = {
+    blacklist = {
         "be",
         "have",
         "do",
@@ -157,10 +157,10 @@ def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
         "aux",
     }
     counter = Counter()
-    MIN_LENGTH = 2
+    min_length = 2
     for text in df["normalized_text"].dropna():
         counter.update(
-            w for w in text.split() if w not in BLACKLIST and len(w) > MIN_LENGTH and w.isalpha()
+            w for w in text.split() if w not in blacklist and len(w) > min_length and w.isalpha()
         )
     return pd.DataFrame(counter.most_common(top_k), columns=["keyword", "count"])
 

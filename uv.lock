@@ -3934,6 +3934,7 @@ docs = [
 [package.dev-dependencies]
 dev = [
     { name = "isort" },
+    { name = "pylint" },
     { name = "ruff" },
 ]
 
@@ -3992,6 +3993,7 @@ provides-extras = ["docs", "dev"]
 [package.metadata.requires-dev]
 dev = [
     { name = "isort", specifier = ">=8.0.1" },
+    { name = "pylint", specifier = ">=4.0.5" },
     { name = "ruff", specifier = ">=0.12.12" },
 ]
 

@@ -545,7 +545,7 @@ with nav_tab1:
                     </div>
                 </div>"""
 
-            html = f"""
+            html = f"""  # pylint: disable=invalid-name
             <div style="
                 background: rgba(255,255,255,0.04);
                 border: 1px solid rgba(255,255,255,0.09);
@@ -1111,9 +1111,9 @@ with nav_tab3:
             .rename(columns=display_cols)
             .assign(
                 **{
-                    "Energy (Wh)": lambda d: d["Energy (Wh)"].map("{:.4f}".format),
-                    "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map("{:.3f}".format),
-                    "Duration (s)": lambda d: d["Duration (s)"].map("{:.2f}".format),
+                    "Energy (Wh)": lambda d: d["Energy (Wh)"].map(lambda x: f"{x:.4f}"),
+                    "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map(lambda x: f"{x:.3f}"),
+                    "Duration (s)": lambda d: d["Duration (s)"].map(lambda x: f"{x:.2f}"),
                     "Time": lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
                 }
             )

@@ -5,10 +5,10 @@ generated using Kedro 1.0.0
 
 from kedro.pipeline import Node, Pipeline  # noqa
 
-from .nodes import fetch_from_keywords, get_client, save_posts_to_db  # noqa
+from .nodes import fetch_from_keywords, save_posts_to_db
 
 
-def create_pipeline(**kwargs) -> Pipeline:
+def create_pipeline(**_kwargs) -> Pipeline:
     return Pipeline(
         [
             Node(

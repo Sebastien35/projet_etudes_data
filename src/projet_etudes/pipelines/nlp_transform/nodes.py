@@ -32,10 +32,10 @@ def get_posts_to_treat():
 
 
 def clean_text(df: pd.DataFrame) -> pd.DataFrame:
-    URL_PATTERN = re.compile(r"http\S+|www\S+")
-    MENTION_PATTERN = re.compile(r"@\w+")
-    HASHTAG_PATTERN = re.compile(r"#\w+")
-    EMOJI_PATTERN = re.compile(
+    url_pattern = re.compile(r"http\S+|www\S+")
+    mention_pattern = re.compile(r"@\w+")
+    hashtag_pattern = re.compile(r"#\w+")
+    emoji_pattern = re.compile(
         "["
         "\U0001f600-\U0001f64f"
         "\U0001f300-\U0001f5ff"
@@ -47,10 +47,10 @@ def clean_text(df: pd.DataFrame) -> pd.DataFrame:
 
     def _clean(text: str) -> str:
         text = text.lower()
-        text = URL_PATTERN.sub("", text)
-        text = MENTION_PATTERN.sub("", text)
-        text = HASHTAG_PATTERN.sub("", text)
-        text = EMOJI_PATTERN.sub("", text)
+        text = url_pattern.sub("", text)
+        text = mention_pattern.sub("", text)
+        text = hashtag_pattern.sub("", text)
+        text = emoji_pattern.sub("", text)
         text = text.translate(str.maketrans("", "", string.punctuation))
         return text
 

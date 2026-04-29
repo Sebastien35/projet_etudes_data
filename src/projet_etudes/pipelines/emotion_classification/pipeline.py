@@ -17,7 +17,7 @@ from kedro.pipeline import Node, Pipeline
 from .nodes import classify_emotions_bert, get_posts_for_emotion, save_emotion_results
 
 
-def create_pipeline(**kwargs) -> Pipeline:
+def create_pipeline(**_kwargs) -> Pipeline:
     return Pipeline(
         [
             Node(
