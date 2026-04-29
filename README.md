@@ -6,7 +6,7 @@ Goulet Gabriel, Richard Mathieu, Borgne Sébastien
 - Ce projet est une application de data science et d'IA, basée sur le framework Kedro, qui permet de récupérer des données de Bluesky, de les prétraiter et de les classer en tant que faux-news.
 
 ## Installation
-### Requirements 
+### Requirements
 - Docker
 - Make
 

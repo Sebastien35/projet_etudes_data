@@ -428,8 +428,8 @@ Le hook est résilient : toute erreur CodeCarbon est capturée et loguée en `WA
 
 ## 8. API de classification — FastAPI
 
-**Fichier :** `src/api/api.py`  
-**Port :** 8080  
+**Fichier :** `src/api/api.py`
+**Port :** 8080
 **Commande locale :** `make api` → `uvicorn src.api.api:app --host 0.0.0.0 --port 8080`
 
 ### Endpoints
@@ -539,8 +539,8 @@ Métriques Prometheus :
 
 ## 10. Interface web — Streamlit
 
-**Fichier :** `src/streamlit_app/streamlit_app.py`  
-**Port :** 8501 (exposé publiquement via nginx sur `:80`)  
+**Fichier :** `src/streamlit_app/streamlit_app.py`
+**Port :** 8501 (exposé publiquement via nginx sur `:80`)
 **Commande locale :** `make web` → `streamlit run src/streamlit_app/streamlit_app.py`
 
 ### Architecture visuelle
@@ -658,14 +658,14 @@ Les métriques sont toujours collectées et exposées par l'API même sans Prome
 
 ## 13. Orchestration — Apache Airflow
 
-**Version :** 2.8.4 (python3.10)  
-**Executor :** `LocalExecutor`  
-**Base de données de métadonnées :** MariaDB (`projet_etudes_db`)  
+**Version :** 2.8.4 (python3.10)
+**Executor :** `LocalExecutor`
+**Base de données de métadonnées :** MariaDB (`projet_etudes_db`)
 **DAGs :** générés par `kedro-airflow` dans `dags/`
 
 Airflow est utilisé pour **planifier l'exécution périodique** des pipelines Kedro (ingestion, transformation, classification). Les DAGs sont générés à partir du registre Kedro via `kedro-airflow`.
 
-**Accès UI :** `http://localhost/airflow/` (via nginx)  
+**Accès UI :** `http://localhost/airflow/` (via nginx)
 **Credentials par défaut :** `admin` / `admin` (créés par `airflow-init`)
 
 **Initialisation :**
@@ -677,7 +677,7 @@ Airflow est utilisé pour **planifier l'exécution périodique** des pipelines K
 
 ## 14. CI/CD — GitHub Actions
 
-**Fichier :** `.github/workflows/ci.yml`  
+**Fichier :** `.github/workflows/ci.yml`
 **Déclencheurs :** push ou pull request sur les branches `main`, `dev`, `ci`
 
 ### Job `Lint`

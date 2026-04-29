@@ -15,3 +15,9 @@ repos:
         files: ^src/projet_etudes/  # only run on this directory
       - id: ruff-format     # runs the formatter
         files: ^src/projet_etudes/
+
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0  # Vérifiez la dernière version sur GitHub
+    hooks:
+      - id: hadolint
+        args: [--ignore=DL3008, --ignore=DL3015]  # Exclure des règles si besoin

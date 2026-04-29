@@ -1521,6 +1521,11 @@ wheels = [
 ]
 
 [[package]]
+name = "hadolint-py"
+version = "2.12.1b2"
+source = { git = "https://github.com/AleksaC/hadolint-py.git?rev=v2.12.1-beta#e6bacfdb8faaf759a089ab9d8e5c7e1697ff16d4" }
+
+[[package]]
 name = "hf-xet"
 version = "1.4.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3881,6 +3886,7 @@ dependencies = [
     { name = "commitizen" },
     { name = "fastapi" },
     { name = "google-genai" },
+    { name = "hadolint-py" },
     { name = "ipython" },
     { name = "jupyterlab" },
     { name = "kedro", extra = ["jupyter"] },
@@ -3948,6 +3954,7 @@ requires-dist = [
     { name = "docutils", marker = "extra == 'docs'", specifier = "<0.21" },
     { name = "fastapi" },
     { name = "google-genai" },
+    { name = "hadolint-py", git = "https://github.com/AleksaC/hadolint-py.git?rev=v2.12.1-beta" },
     { name = "ipykernel", marker = "extra == 'docs'", specifier = ">=5.3,<7.0" },
     { name = "ipython", specifier = ">=8.10" },
     { name = "jinja2", marker = "extra == 'docs'", specifier = "<3.2.0" },

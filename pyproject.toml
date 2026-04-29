@@ -38,6 +38,7 @@ dependencies = [
     "codecarbon",
     "commitizen>=4.8.3",
     "pre-commit>=4.6.0",
+    "hadolint-py",
 ]
 
 [project.scripts]
@@ -148,6 +149,9 @@ max-locals = 20
 
 [tool.kedro_telemetry]
 project_id = "b02942fb0e324d578b73d8185cd058d2"
+
+[tool.uv.sources]
+hadolint-py = { git = "https://github.com/AleksaC/hadolint-py.git", rev = "v2.12.1-beta" }
 
 [dependency-groups]
 dev = [

@@ -17,11 +17,8 @@ RUN uv pip install --system --no-cache \
     "pandas" \
     "numpy" \
     "codecarbon" \
-    "transformers>=4.40.0"
-
-# CPU-only PyTorch — separate install to scope the --index-url
-# Avoids pulling the ~2 GB CUDA wheels that the default PyPI index serves
-RUN uv pip install --system --no-cache \
+    "transformers>=4.40.0" \
+    && uv pip install --system --no-cache \
     "torch>=2.0.0" \
     --index-url https://download.pytorch.org/whl/cpu
 
@@ -29,4 +26,4 @@ RUN uv pip install --system --no-cache \
 # which takes precedence over system-site and breaks pydantic-core's Sentinel
 # import. Upgrade it in user-site so it shadows the stale copy.
 USER airflow
-RUN pip install --upgrade "typing_extensions>=4.12.0"
+RUN pip install --no-cache-dir --upgrade "typing_extensions>=4.12.0"
