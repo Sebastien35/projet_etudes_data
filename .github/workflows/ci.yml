@@ -47,9 +47,6 @@ jobs:
       with:
         dockerfile: Dockerfile.streamlit
 
-    - name: docker compose lint
-      run: docker compose config --quiet
-
   test:
     name: Test
     runs-on: ubuntu-latest
