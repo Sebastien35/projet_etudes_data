@@ -145,27 +145,50 @@ services:
       api:
         condition: service_healthy
 
+  # ── Node Exporter (host metrics: CPU / RAM / disk) ────────────────────────
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: always
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
   # ── Prometheus ────────────────────────────────────────────────────────────
-  # prometheus:
-  #   image: prom/prometheus
-  #   ports: ["9090:9090"]
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-  #   volumes:
-  #     - ./conf/prometheus.yml:/etc/prometheus/prometheus.yml
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: always
+    ports: ["9090:9090"]
+    volumes:
+      - ./conf/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - api
+      - node-exporter
 
   # ── Grafana ───────────────────────────────────────────────────────────────
-  # grafana:
-  #   image: grafana/grafana
-  #   ports: ["3000:3000"]
-  #   depends_on:
-  #     - prometheus
-  #   environment:
-  #     - GF_AUTH_ANONYMOUS_ENABLED=true
-  #     - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-  #   volumes:
-  #     - ./conf/grafana/provisioning:/etc/grafana/provisioning
-  #     - ./conf/grafana/dashboards:/var/lib/grafana/dashboards
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: always
+    ports: ["3000:3000"]
+    depends_on:
+      - prometheus
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SERVER_ROOT_URL=http://localhost/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - ./conf/grafana/provisioning:/etc/grafana/provisioning
+      - ./conf/grafana/dashboards:/var/lib/grafana/dashboards
 
 volumes:
   airflow-logs:
