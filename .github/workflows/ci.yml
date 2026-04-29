@@ -18,11 +18,14 @@ jobs:
     - name: Install dependencies
       run: uv sync --extra dev
 
-    - name: black
-      run: uv run black --check .
-
     - name: ruff
       run: uv run ruff check .
+
+    - name: pylint
+      run: uv run pylint src/
+
+    - name: yamllint
+      run: uv run yamllint .
 
     - name: hadolint (Dockerfile)
       uses: hadolint/hadolint-action@v3.1.0
@@ -33,6 +36,19 @@ jobs:
       uses: hadolint/hadolint-action@v3.1.0
       with:
         dockerfile: Dockerfile.airflow
+
+    - name: hadolint (Dockerfile.api)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile.api
+
+    - name: hadolint (Dockerfile.streamlit)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile.streamlit
+
+    - name: docker compose lint
+      run: docker compose config --quiet
 
   test:
     name: Test

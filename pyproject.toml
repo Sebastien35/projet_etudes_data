@@ -61,7 +61,8 @@ dev = [
     "pytest-mock>=1.7.1, <2.0",
     "pytest~=7.2",
     "ruff~=0.12.0",
-    "black",
+    "pylint",
+    "yamllint",
     "pre-commit",
     "commitizen"
 ]
@@ -91,10 +92,6 @@ fail_under = 0
 show_missing = true
 exclude_lines = ["pragma: no cover", "raise NotImplementedError"]
 
-[tool.black]
-target-version = ["py310"]
-line-length = 88
-
 [tool.ruff.format]
 docstring-code-format = true
 
@@ -121,7 +118,3 @@ ignore = [
 [tool.kedro_telemetry]
 project_id = "b02942fb0e324d578b73d8185cd058d2"
 
-[dependency-groups]
-dev = [
-    "black>=26.3.1",
-]
