@@ -1,6 +1,10 @@
 import logging
 
+from codecarbon import EmissionsTracker
 from kedro.framework.hooks import hook_impl
+from pyspark import SparkConf
+from pyspark.sql import SparkSession
+
 from shared.energy_service import save_energy_log
 
 logger = logging.getLogger(__name__)
@@ -21,8 +25,6 @@ class EnergyHook:
     @hook_impl
     def before_node_run(self, node, catalog, inputs, is_async, run_id) -> None:
         try:
-            from codecarbon import EmissionsTracker
-
             tracker = EmissionsTracker(
                 save_to_file=False,
                 save_to_api=False,
@@ -72,9 +74,6 @@ class SparkHooks:
     def after_context_created(self, context) -> None:
         """Initialises a SparkSession using the config defined in project's conf folder (if available)."""
         try:
-            from pyspark import SparkConf
-            from pyspark.sql import SparkSession
-
             # Look for the spark config (will raise KeyError if not present)
             parameters = context.config_loader.get("spark", None)
             if parameters is None:

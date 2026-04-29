@@ -19,15 +19,22 @@ MODEL_PATH = "data/06_models/lstm_model.keras"
 TOKENIZER_PATH = "data/06_models/lstm_tokenizer.pkl"
 MAX_LEN = 200
 
+class _vals:
+    def __init__(self):
+        self.true = 0.8
+        self.very_likely_true = 0.6
+        self.uncertain = 0.4
+        self.very_likely_false = 0.2
+        self.false = 0.0
 
 def _prob_to_verdict(prob: float) -> str:
-    if prob >= 0.8:
+    if prob >= _vals().true:
         return "true"
-    if prob >= 0.6:
+    if prob >= _vals().very_likely_true:
         return "very likely true"
-    if prob >= 0.4:
+    if prob >= _vals().uncertain:
         return "uncertain"
-    if prob >= 0.2:
+    if prob >= _vals().very_likely_false:
         return "very likely false"
     return "false"
 

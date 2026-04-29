@@ -20,7 +20,8 @@ class OllamaService(LLMInterface):
         logger.info(f"OllamaService targeting {self._url} with model {self.model_name}")
 
     async def explain(self, claim: str, verdict: str, probability: float) -> str:
-        is_real = probability >= 0.5
+        MIN_PROBABILITY = 0.5
+        is_real = probability >= MIN_PROBABILITY
         confidence_pct = (
             int(probability * 100) if is_real else int((1 - probability) * 100)
         )

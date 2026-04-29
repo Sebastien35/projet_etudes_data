@@ -10,8 +10,6 @@ import string
 import unicodedata
 from pathlib import Path
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
 _instance = None
@@ -19,15 +17,22 @@ _instance = None
 VECTORIZER_PATH = "data/06_models/tfidf_vectorizer.pkl"
 KMEANS_PATH = "data/06_models/kmeans_model.pkl"
 
+class _vals:
+    def __init__(self):
+        self.true = 0.8
+        self.very_likely_true = 0.6
+        self.uncertain = 0.4
+        self.very_likely_false = 0.2
+        self.false = 0.0
 
 def _score_to_verdict(score: float) -> str:
-    if score >= 0.8:
+    if score >= _vals().true:
         return "true"
-    if score >= 0.6:
+    if score >= _vals().very_likely_true:
         return "very likely true"
-    if score >= 0.4:
+    if score >= _vals().uncertain:
         return "uncertain"
-    if score >= 0.2:
+    if score >= _vals().very_likely_false:
         return "very likely false"
     return "false"
 

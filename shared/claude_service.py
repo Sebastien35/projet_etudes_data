@@ -14,7 +14,8 @@ class ClaudeService(LLMInterface):
         super().__init__(model_name="claude-opus-4-6", api_key=None)
 
     async def explain(self, claim: str, verdict: str, probability: float) -> str:
-        is_real = probability >= 0.5
+        MIN = 0.5
+        is_real = probability >= MIN
         confidence_pct = (
             int(probability * 100) if is_real else int((1 - probability) * 100)
         )

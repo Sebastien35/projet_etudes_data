@@ -18,10 +18,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from kedro_operator import KedroOperator
+
 from airflow.decorators import dag
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-
-from kedro_operator import KedroOperator
 
 PIPELINE = "ingest_from_bluesky"
 

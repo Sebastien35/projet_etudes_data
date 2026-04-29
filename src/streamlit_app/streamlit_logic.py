@@ -157,9 +157,10 @@ def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
         "aux",
     }
     counter = Counter()
+    MIN_LENGTH = 2
     for text in df["normalized_text"].dropna():
         counter.update(
-            w for w in text.split() if w not in BLACKLIST and len(w) > 2 and w.isalpha()
+            w for w in text.split() if w not in BLACKLIST and len(w) > MIN_LENGTH and w.isalpha()
         )
     return pd.DataFrame(counter.most_common(top_k), columns=["keyword", "count"])
 

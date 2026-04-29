@@ -24,7 +24,8 @@ class GeminiService(LLMInterface):
         Ask Gemini to explain why a claim was classified with a given verdict.
         Returns a plain-text explanation (2-3 sentences).
         """
-        is_real = probability >= 0.5
+        MIN = 0.5
+        is_real = probability >= MIN
         confidence_pct = (
             int(probability * 100) if is_real else int((1 - probability) * 100)
         )

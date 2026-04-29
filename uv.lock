@@ -3891,6 +3891,7 @@ dependencies = [
     { name = "notebook" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pre-commit" },
     { name = "prometheus-fastapi-instrumentator" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
@@ -3930,6 +3931,12 @@ docs = [
     { name = "sphinx-rtd-theme" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "isort" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "atproto", specifier = "==0.0.63" },
@@ -3953,6 +3960,7 @@ requires-dist = [
     { name = "nltk" },
     { name = "notebook" },
     { name = "pandas" },
+    { name = "pre-commit", specifier = ">=4.6.0" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "prometheus-fastapi-instrumentator" },
     { name = "prompt-toolkit", specifier = "==3.0.51" },
@@ -3980,6 +3988,12 @@ requires-dist = [
     { name = "yamllint", marker = "extra == 'dev'" },
 ]
 provides-extras = ["docs", "dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "isort", specifier = ">=8.0.1" },
+    { name = "ruff", specifier = ">=0.12.12" },
+]
 
 [[package]]
 name = "prometheus-client"
