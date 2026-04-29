@@ -403,7 +403,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-nav_tab1, nav_tab2, nav_tab3 = st.tabs(["  Fact-Check  ", "  Analytics  ", "  Energy  "])
+nav_tab1, nav_tab2, nav_tab3 = st.tabs(
+    ["  Fact-Check  ", "  Analytics  ", "  Energy  "]
+)
 
 
 # ── Load corpus data (cached 5 min) ────────────────────────────────────────
@@ -510,16 +512,16 @@ with nav_tab1:
                 result = send_message_api(user_input)
 
             verdict = result["verdict"]
-            color   = result["color"]
-            expl    = result["explanation"]
-            prob    = result["probability"]
-            source  = result["based_on"]
+            color = result["color"]
+            expl = result["explanation"]
+            prob = result["probability"]
+            source = result["based_on"]
 
             source_label = {
-                "kmeans":           "◆ KMeans classifier",
-                "rag":              "◆ Bluesky corpus",
-                "general_knowledge":"◆ General knowledge",
-                "error":            "◆ API error",
+                "kmeans": "◆ KMeans classifier",
+                "rag": "◆ Bluesky corpus",
+                "general_knowledge": "◆ General knowledge",
+                "error": "◆ API error",
             }.get(source, f"◆ {source}")
 
             prob_bar = ""
@@ -703,7 +705,11 @@ with nav_tab2:
                 point=alt.OverlayMarkDef(color=C.ACCENT_PRIMARY, filled=True, size=55),
             )
             .encode(
-                x=alt.X("hour:Q", title="Hour of day", axis=alt.Axis(tickCount=12, format="d")),
+                x=alt.X(
+                    "hour:Q",
+                    title="Hour of day",
+                    axis=alt.Axis(tickCount=12, format="d"),
+                ),
                 y=alt.Y("count:Q", title="Posts"),
                 tooltip=["hour:Q", "count:Q"],
             )
@@ -715,13 +721,13 @@ with nav_tab2:
     with tab4:
         # Ekman palette — consistent across both charts
         EMOTION_COLORS = {
-            "joy":      "#34d399",
+            "joy": "#34d399",
             "surprise": "#c084fc",
-            "neutral":  "#7878a0",
-            "fear":     "#fb923c",
-            "sadness":  "#60a5fa",
-            "anger":    "#f87171",
-            "disgust":  "#94a3b8",
+            "neutral": "#7878a0",
+            "fear": "#fb923c",
+            "sadness": "#60a5fa",
+            "anger": "#f87171",
+            "disgust": "#94a3b8",
         }
 
         if df_emo_dist is None or df_emo_dist.empty:
@@ -739,10 +745,10 @@ with nav_tab2:
             )
         else:
             emo_domain = df_emo_dist["emotion"].tolist()
-            emo_range  = [EMOTION_COLORS.get(e, C.ACCENT_PRIMARY) for e in emo_domain]
+            emo_range = [EMOTION_COLORS.get(e, C.ACCENT_PRIMARY) for e in emo_domain]
 
             # ── Top metric: dominant emotion ──────────────────────────────
-            dominant    = df_emo_dist.iloc[0]["emotion"].capitalize()
+            dominant = df_emo_dist.iloc[0]["emotion"].capitalize()
             total_emoed = int(df_emo_dist["count"].sum())
             ec1, ec2 = st.columns(2)
             ec1.metric("Posts analysed", f"{total_emoed:,}")
@@ -753,7 +759,12 @@ with nav_tab2:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             donut = (
                 alt.Chart(df_emo_dist)
-                .mark_arc(innerRadius=55, outerRadius=110, stroke="rgba(0,0,0,0.15)", strokeWidth=1)
+                .mark_arc(
+                    innerRadius=55,
+                    outerRadius=110,
+                    stroke="rgba(0,0,0,0.15)",
+                    strokeWidth=1,
+                )
                 .encode(
                     theta=alt.Theta("count:Q"),
                     color=alt.Color(
@@ -787,10 +798,17 @@ with nav_tab2:
                     alt.Chart(df_emo_score)
                     .mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6)
                     .encode(
-                        y=alt.Y("emotion:N", sort="-x", title="",
-                                axis=alt.Axis(labelLimit=110)),
-                        x=alt.X("avg_score:Q", title="Avg BERT confidence",
-                                scale=alt.Scale(domain=[0, 1])),
+                        y=alt.Y(
+                            "emotion:N",
+                            sort="-x",
+                            title="",
+                            axis=alt.Axis(labelLimit=110),
+                        ),
+                        x=alt.X(
+                            "avg_score:Q",
+                            title="Avg BERT confidence",
+                            scale=alt.Scale(domain=[0, 1]),
+                        ),
                         color=alt.Color(
                             "emotion:N",
                             scale=alt.Scale(
@@ -801,10 +819,14 @@ with nav_tab2:
                         ),
                         tooltip=[
                             alt.Tooltip("emotion:N", title="Emotion"),
-                            alt.Tooltip("avg_score:Q", title="Avg confidence", format=".3f"),
+                            alt.Tooltip(
+                                "avg_score:Q", title="Avg confidence", format=".3f"
+                            ),
                         ],
                     )
-                    .properties(height=220, title="Average model confidence per emotion")
+                    .properties(
+                        height=220, title="Average model confidence per emotion"
+                    )
                 )
                 st.altair_chart(glass_chart(conf_bar), use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -825,8 +847,8 @@ with nav_tab2:
                         ),
                         tooltip=[
                             alt.Tooltip("category:N", title="Category"),
-                            alt.Tooltip("emotion:N",  title="Emotion"),
-                            alt.Tooltip("count:Q",    title="Posts"),
+                            alt.Tooltip("emotion:N", title="Emotion"),
+                            alt.Tooltip("count:Q", title="Posts"),
                         ],
                     )
                     .properties(
@@ -888,10 +910,10 @@ with nav_tab3:
             unsafe_allow_html=True,
         )
     else:
-        total_wh  = df_energy["energy_wh"].sum()
+        total_wh = df_energy["energy_wh"].sum()
         total_co2 = df_energy["co2_mg"].sum()
         total_runs = df_energy["run_id"].nunique()
-        heaviest  = df_by_node.iloc[0]["node_name"] if not df_by_node.empty else "—"
+        heaviest = df_by_node.iloc[0]["node_name"] if not df_by_node.empty else "—"
 
         c1, c2 = st.columns(2)
         c1.metric("Total Energy", f"{total_wh:.2f} Wh")
@@ -906,9 +928,9 @@ with nav_tab3:
         # Neon pipeline colours for dark mode
         PIPELINE_COLORS = {
             "ingest_from_bluesky": "#60a5fa",
-            "nlp_transform":        "#c084fc",
-            "vectorisation":        "#34d399",
-            "default":              "#fbbf24",
+            "nlp_transform": "#c084fc",
+            "vectorisation": "#34d399",
+            "default": "#fbbf24",
         }
 
         etab1, etab2, etab3, etab4 = st.tabs(
@@ -925,8 +947,12 @@ with nav_tab3:
                 alt.Chart(df_by_pipeline)
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
-                    y=alt.Y("pipeline_name:N", sort="-x", title="",
-                            axis=alt.Axis(labelLimit=160)),
+                    y=alt.Y(
+                        "pipeline_name:N",
+                        sort="-x",
+                        title="",
+                        axis=alt.Axis(labelLimit=160),
+                    ),
                     x=alt.X("total_wh:Q", title="Energy (Wh)"),
                     color=alt.Color(
                         "pipeline_name:N",
@@ -941,7 +967,9 @@ with nav_tab3:
                         alt.Tooltip("total_wh:Q", title="Energy (Wh)", format=".4f"),
                         alt.Tooltip("total_co2_mg:Q", title="CO₂ (mg)", format=".2f"),
                         alt.Tooltip("runs:Q", title="Runs"),
-                        alt.Tooltip("total_duration_s:Q", title="Duration (s)", format=".1f"),
+                        alt.Tooltip(
+                            "total_duration_s:Q", title="Duration (s)", format=".1f"
+                        ),
                     ],
                 )
                 .properties(height=max(120, len(df_by_pipeline) * 55))
@@ -959,8 +987,12 @@ with nav_tab3:
                 alt.Chart(df_by_node)
                 .mark_bar(cornerRadiusTopRight=8, cornerRadiusBottomRight=8)
                 .encode(
-                    y=alt.Y("node_name:N", sort="-x", title="",
-                            axis=alt.Axis(labelLimit=200)),
+                    y=alt.Y(
+                        "node_name:N",
+                        sort="-x",
+                        title="",
+                        axis=alt.Axis(labelLimit=200),
+                    ),
                     x=alt.X("total_wh:Q", title="Total Energy (Wh)"),
                     color=alt.Color(
                         "pipeline_name:N",
@@ -975,7 +1007,9 @@ with nav_tab3:
                         alt.Tooltip("pipeline_name:N", title="Pipeline"),
                         alt.Tooltip("total_wh:Q", title="Total (Wh)", format=".4f"),
                         alt.Tooltip("avg_wh:Q", title="Avg/run (Wh)", format=".4f"),
-                        alt.Tooltip("avg_duration_s:Q", title="Avg duration (s)", format=".2f"),
+                        alt.Tooltip(
+                            "avg_duration_s:Q", title="Avg duration (s)", format=".2f"
+                        ),
                         alt.Tooltip("runs:Q", title="Runs"),
                     ],
                 )
@@ -1036,10 +1070,16 @@ with nav_tab3:
                             legend=alt.Legend(title="Pipeline", orient="bottom"),
                         ),
                         tooltip=[
-                            alt.Tooltip("timestamp:T", title="Date", format="%Y-%m-%d %H:%M"),
+                            alt.Tooltip(
+                                "timestamp:T", title="Date", format="%Y-%m-%d %H:%M"
+                            ),
                             alt.Tooltip("pipeline_name:N", title="Pipeline"),
-                            alt.Tooltip("total_wh:Q", title="Energy (Wh)", format=".4f"),
-                            alt.Tooltip("total_co2_mg:Q", title="CO₂ (mg)", format=".2f"),
+                            alt.Tooltip(
+                                "total_wh:Q", title="Energy (Wh)", format=".4f"
+                            ),
+                            alt.Tooltip(
+                                "total_co2_mg:Q", title="CO₂ (mg)", format=".2f"
+                            ),
                         ],
                     )
                     .properties(height=280)
@@ -1058,22 +1098,24 @@ with nav_tab3:
             unsafe_allow_html=True,
         )
         display_cols = {
-            "timestamp":   "Time",
+            "timestamp": "Time",
             "pipeline_name": "Pipeline",
-            "node_name":   "Node",
-            "energy_wh":   "Energy (Wh)",
-            "co2_mg":      "CO₂ (mg)",
-            "duration_s":  "Duration (s)",
+            "node_name": "Node",
+            "energy_wh": "Energy (Wh)",
+            "co2_mg": "CO₂ (mg)",
+            "duration_s": "Duration (s)",
         }
         df_display = (
             df_energy[list(display_cols.keys())]
             .head(40)
             .rename(columns=display_cols)
-            .assign(**{
-                "Energy (Wh)": lambda d: d["Energy (Wh)"].map("{:.4f}".format),
-                "CO₂ (mg)":    lambda d: d["CO₂ (mg)"].map("{:.3f}".format),
-                "Duration (s)":lambda d: d["Duration (s)"].map("{:.2f}".format),
-                "Time":        lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
-            })
+            .assign(
+                **{
+                    "Energy (Wh)": lambda d: d["Energy (Wh)"].map("{:.4f}".format),
+                    "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map("{:.3f}".format),
+                    "Duration (s)": lambda d: d["Duration (s)"].map("{:.2f}".format),
+                    "Time": lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            )
         )
         st.dataframe(df_display, use_container_width=True, hide_index=True)

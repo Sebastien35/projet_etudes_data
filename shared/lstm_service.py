@@ -33,11 +33,14 @@ def _prob_to_verdict(prob: float) -> str:
 
 
 class LSTMService:
-    def __init__(self, model_path: str = MODEL_PATH, tokenizer_path: str = TOKENIZER_PATH, max_len: int = MAX_LEN):
+    def __init__(
+        self,
+        model_path: str = MODEL_PATH,
+        tokenizer_path: str = TOKENIZER_PATH,
+        max_len: int = MAX_LEN,
+    ):
         if not Path(model_path).exists():
-            raise FileNotFoundError(
-                f"LSTM model not found at {model_path}. "
-            )
+            raise FileNotFoundError(f"LSTM model not found at {model_path}. ")
         self._model = load_model(model_path)
         with open(tokenizer_path, "rb") as f:
             self._tokenizer = pickle.load(f)
@@ -53,7 +56,9 @@ class LSTMService:
     def classify(self, text: str) -> dict:
         cleaned = self._preprocess(text)
         seq = self._tokenizer.texts_to_sequences([cleaned])
-        padded = pad_sequences(seq, maxlen=self._max_len, padding="post", truncating="post")
+        padded = pad_sequences(
+            seq, maxlen=self._max_len, padding="post", truncating="post"
+        )
         prob = float(self._model.predict(padded, verbose=0).flatten()[0])
         return {
             "verdict": _prob_to_verdict(prob),

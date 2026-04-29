@@ -28,17 +28,17 @@ class ColorChart:
     # Semantic
     SUCCESS_COLOR = "#34d399"
     WARNING_COLOR = "#fbbf24"
-    DANGER_COLOR  = "#f87171"
-    YELLOW        = "#fbbf24"
+    DANGER_COLOR = "#f87171"
+    YELLOW = "#fbbf24"
 
     # Verdict scale
     VERDICT_COLORS = {
-        "true":             "#34d399",
+        "true": "#34d399",
         "very likely true": "#6ee7b7",
-        "uncertain":        "#fbbf24",
-        "very likely false":"#fb923c",
-        "false":            "#f87171",
-        "error":            "#f87171",
+        "uncertain": "#fbbf24",
+        "very likely false": "#fb923c",
+        "false": "#f87171",
+        "error": "#f87171",
     }
 
     @classmethod

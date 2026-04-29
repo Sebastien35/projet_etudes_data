@@ -17,15 +17,21 @@ def get_posts_for_emotion() -> tuple[list[str], list[dict]]:
     all_posts = list(
         mongo.use_collection("cleaned_posts").find(
             {"normalized_text": {"$exists": True, "$ne": ""}},
-            {"_id": 0, "unique_id": 1, "username": 1, "category": 1, "normalized_text": 1},
+            {
+                "_id": 0,
+                "unique_id": 1,
+                "username": 1,
+                "category": 1,
+                "normalized_text": 1,
+            },
         )
     )
-    classified_ids = set(
-        mongo.use_collection("emotion_posts").distinct("unique_id")
-    )
+    classified_ids = set(mongo.use_collection("emotion_posts").distinct("unique_id"))
     posts = [p for p in all_posts if p["unique_id"] not in classified_ids]
     texts = [p["normalized_text"] for p in posts]
-    logger.info(f"[emotion] {len(posts)} posts to classify ({len(classified_ids)} already done)")
+    logger.info(
+        f"[emotion] {len(posts)} posts to classify ({len(classified_ids)} already done)"
+    )
     return texts, posts
 
 
@@ -62,7 +68,9 @@ def classify_emotions_bert(
         max_length=max_length,
         device=-1,  # CPU — change to 0 for CUDA
     )
-    logger.info(f"[emotion] Model loaded. Classifying {len(texts)} posts in batches of {batch_size} …")
+    logger.info(
+        f"[emotion] Model loaded. Classifying {len(texts)} posts in batches of {batch_size} …"
+    )
 
     results = []
     for start in range(0, len(texts), batch_size):
@@ -74,16 +82,18 @@ def classify_emotions_bert(
             top = pred[0]
             results.append(
                 {
-                    "unique_id":       post["unique_id"],
-                    "username":        post.get("username"),
-                    "category":        post.get("category"),
+                    "unique_id": post["unique_id"],
+                    "username": post.get("username"),
+                    "category": post.get("category"),
                     "normalized_text": post.get("normalized_text"),
-                    "emotion":         top["label"].lower(),
-                    "emotion_score":   round(float(top["score"]), 4),
+                    "emotion": top["label"].lower(),
+                    "emotion_score": round(float(top["score"]), 4),
                 }
             )
 
-        logger.info(f"[emotion] {min(start + batch_size, len(texts))}/{len(texts)} done")
+        logger.info(
+            f"[emotion] {min(start + batch_size, len(texts))}/{len(texts)} done"
+        )
 
     return results
 

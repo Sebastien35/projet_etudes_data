@@ -21,7 +21,9 @@ class OllamaService(LLMInterface):
 
     async def explain(self, claim: str, verdict: str, probability: float) -> str:
         is_real = probability >= 0.5
-        confidence_pct = int(probability * 100) if is_real else int((1 - probability) * 100)
+        confidence_pct = (
+            int(probability * 100) if is_real else int((1 - probability) * 100)
+        )
         label = "real news" if is_real else "fake news"
 
         system = (
@@ -35,7 +37,7 @@ class OllamaService(LLMInterface):
         )
         user = (
             f"A KMeans text classifier labeled the following input as {label.upper()} "
-            f"with {confidence_pct}% confidence (verdict: \"{verdict}\").\n\n"
+            f'with {confidence_pct}% confidence (verdict: "{verdict}").\n\n'
             "Identify 2-3 linguistic or structural features in the text that likely drove this classification. "
             "Be concise and technical. Do not repeat the verdict.\n\n"
             f"TEXT: {claim}"

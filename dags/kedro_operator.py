@@ -1,4 +1,5 @@
 """Shared KedroOperator used by all project DAGs."""
+
 from __future__ import annotations
 
 from pathlib import Path

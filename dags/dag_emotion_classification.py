@@ -21,6 +21,7 @@ First run downloads the model (~300 MB) to ~/.cache/huggingface/hub/.
 Subsequent runs reuse the local cache. Mount a named volume on
 /home/airflow/.cache/huggingface to persist the cache across restarts.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

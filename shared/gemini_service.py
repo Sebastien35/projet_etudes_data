@@ -25,7 +25,9 @@ class GeminiService(LLMInterface):
         Returns a plain-text explanation (2-3 sentences).
         """
         is_real = probability >= 0.5
-        confidence_pct = int(probability * 100) if is_real else int((1 - probability) * 100)
+        confidence_pct = (
+            int(probability * 100) if is_real else int((1 - probability) * 100)
+        )
         label = "real news" if is_real else "fake news"
 
         prompt = f"""You are a fact-checker assistant.
@@ -39,12 +41,21 @@ CLAIM: {claim}
 Explanation:"""
 
         start = time.perf_counter()
-        response = self.client.models.generate_content(model=self.model, contents=prompt)
+        response = self.client.models.generate_content(
+            model=self.model, contents=prompt
+        )
         LLM_LATENCY.observe(time.perf_counter() - start)
-        logger.info(f"Gemini explanation generated in {time.perf_counter() - start:.2f}s")
+        logger.info(
+            f"Gemini explanation generated in {time.perf_counter() - start:.2f}s"
+        )
         return response.text.strip()
 
     # kept for backward compatibility — not used by the API anymore
     def send_message(self, claim: str) -> dict:
         explanation = self.explain(claim, verdict="uncertain", probability=0.5)
-        return {"verdict": "uncertain", "probability": 0.5, "explanation": explanation, "based_on": "gemini"}
+        return {
+            "verdict": "uncertain",
+            "probability": 0.5,
+            "explanation": explanation,
+            "based_on": "gemini",
+        }

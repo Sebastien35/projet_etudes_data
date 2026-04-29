@@ -15,12 +15,14 @@ class ClaudeService(LLMInterface):
 
     async def explain(self, claim: str, verdict: str, probability: float) -> str:
         is_real = probability >= 0.5
-        confidence_pct = int(probability * 100) if is_real else int((1 - probability) * 100)
+        confidence_pct = (
+            int(probability * 100) if is_real else int((1 - probability) * 100)
+        )
         label = "real news" if is_real else "fake news"
 
         prompt = (
             f"A KMeans clustering model classified the following claim as {label.upper()} "
-            f"with {confidence_pct}% confidence (verdict: \"{verdict}\").\n\n"
+            f'with {confidence_pct}% confidence (verdict: "{verdict}").\n\n'
             "In 2-3 sentences, explain what signals in the claim support this "
             "classification. Be factual and do not repeat the verdict label.\n\n"
             f"CLAIM: {claim}"

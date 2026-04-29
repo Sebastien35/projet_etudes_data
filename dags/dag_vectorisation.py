@@ -39,6 +39,7 @@ The exported pkl files are mounted into the `api` container via the
 ./data:/app/data Docker volume, so the FastAPI service picks up the
 updated model on next cold start.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

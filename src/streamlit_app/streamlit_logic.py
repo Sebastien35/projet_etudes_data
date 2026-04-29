@@ -107,17 +107,59 @@ def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
 
 def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
     BLACKLIST = {
-        "be", "have", "do", "not", "say", "get", "make", "go", "know", "see",
-        "use", "would", "could", "should", "the", "a", "an", "is", "it", "in",
-        "of", "to", "and", "or", "for", "on", "at", "by", "with", "this",
-        "de", "la", "le", "et", "les", "des", "un", "une", "pour", "dans",
-        "que", "qui", "sur", "pas", "plus", "ne", "au", "aux",
+        "be",
+        "have",
+        "do",
+        "not",
+        "say",
+        "get",
+        "make",
+        "go",
+        "know",
+        "see",
+        "use",
+        "would",
+        "could",
+        "should",
+        "the",
+        "a",
+        "an",
+        "is",
+        "it",
+        "in",
+        "of",
+        "to",
+        "and",
+        "or",
+        "for",
+        "on",
+        "at",
+        "by",
+        "with",
+        "this",
+        "de",
+        "la",
+        "le",
+        "et",
+        "les",
+        "des",
+        "un",
+        "une",
+        "pour",
+        "dans",
+        "que",
+        "qui",
+        "sur",
+        "pas",
+        "plus",
+        "ne",
+        "au",
+        "aux",
     }
     counter = Counter()
     for text in df["normalized_text"].dropna():
         counter.update(
-            w for w in text.split()
-            if w not in BLACKLIST and len(w) > 2 and w.isalpha()
+            w for w in text.split() if w not in BLACKLIST and len(w) > 2 and w.isalpha()
         )
     return pd.DataFrame(counter.most_common(top_k), columns=["keyword", "count"])
 
@@ -141,6 +183,7 @@ def fake_real_distribution(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── Emotion analytics ─────────────────────────────────────────────────────
+
 
 def get_emotion_posts() -> pd.DataFrame:
     """Fetch emotion-classified posts from MongoDB."""
@@ -184,11 +227,7 @@ def emotion_by_category(df: pd.DataFrame) -> pd.DataFrame:
     """Post counts broken down by emotion × category (for heatmap)."""
     if df.empty or "emotion" not in df.columns or "category" not in df.columns:
         return pd.DataFrame(columns=["category", "emotion", "count"])
-    return (
-        df.groupby(["category", "emotion"])
-        .size()
-        .reset_index(name="count")
-    )
+    return df.groupby(["category", "emotion"]).size().reset_index(name="count")
 
 
 def avg_emotion_score(df: pd.DataFrame) -> pd.DataFrame:
@@ -205,6 +244,7 @@ def avg_emotion_score(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── Energy monitoring ──────────────────────────────────────────────────────
+
 
 def get_energy_df() -> pd.DataFrame:
     """Load energy logs from MongoDB and return as a DataFrame."""

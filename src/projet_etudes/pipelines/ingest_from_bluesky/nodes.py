@@ -111,7 +111,13 @@ def fetch_from_keywords() -> list:
         "Discover": ["news", "world news", "science", "technology", "research"],
         "Trending": ["breaking news", "urgent", "live updates", "alert"],
         "Hot Topics": ["politics", "election", "climate", "crisis", "economy", "AI"],
-        "Misinformation": ["fact check", "debunked", "misinformation", "conspiracy", "hoax"],
+        "Misinformation": [
+            "fact check",
+            "debunked",
+            "misinformation",
+            "conspiracy",
+            "hoax",
+        ],
     }
 
     existing_posts = set(mongo.use_collection("posts").distinct("unique_id"))

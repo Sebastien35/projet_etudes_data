@@ -62,7 +62,9 @@ class EnergyHook:
                 f"{d.emissions * 1e6:.2f} µg CO₂"
             )
         except Exception as e:
-            logger.warning(f"[EnergyHook] Could not save energy data for {node.name}: {e}")
+            logger.warning(
+                f"[EnergyHook] Could not save energy data for {node.name}: {e}"
+            )
 
 
 class SparkHooks:

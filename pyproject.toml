@@ -120,3 +120,8 @@ ignore = [
 
 [tool.kedro_telemetry]
 project_id = "b02942fb0e324d578b73d8185cd058d2"
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+]

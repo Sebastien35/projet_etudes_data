@@ -33,7 +33,9 @@ def _score_to_verdict(score: float) -> str:
 
 
 class KMeansService:
-    def __init__(self, vectorizer_path: str = VECTORIZER_PATH, kmeans_path: str = KMEANS_PATH):
+    def __init__(
+        self, vectorizer_path: str = VECTORIZER_PATH, kmeans_path: str = KMEANS_PATH
+    ):
         if not Path(vectorizer_path).exists():
             raise FileNotFoundError(
                 f"TF-IDF vectorizer not found at {vectorizer_path}. "

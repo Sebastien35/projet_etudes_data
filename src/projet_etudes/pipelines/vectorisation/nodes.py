@@ -17,11 +17,11 @@ mongo = mongo_client()
 def get_cleaned_posts():
     """Fetch posts that have been normalised but not yet classified."""
     cleaned_collection = mongo.use_collection("cleaned_posts")
-    classified_ids = set(
-        mongo.use_collection("classified_posts").distinct("unique_id")
-    )
+    classified_ids = set(mongo.use_collection("classified_posts").distinct("unique_id"))
 
-    raw_posts = list(cleaned_collection.find({"normalized_text": {"$exists": True, "$ne": ""}}))
+    raw_posts = list(
+        cleaned_collection.find({"normalized_text": {"$exists": True, "$ne": ""}})
+    )
     posts = [p for p in raw_posts if p["unique_id"] not in classified_ids]
     texts = [p["normalized_text"] for p in posts]
 
@@ -54,7 +54,9 @@ def cluster_posts(tfidf_matrix, n_clusters: int):
 
     real_count = int((labels == 1).sum())
     fake_count = len(labels) - real_count
-    logger.info(f"Clustered {len(labels)} posts → cluster-1 (real): {real_count}, cluster-0 (fake): {fake_count}")
+    logger.info(
+        f"Clustered {len(labels)} posts → cluster-1 (real): {real_count}, cluster-0 (fake): {fake_count}"
+    )
     return labels, scores, km
 
 
