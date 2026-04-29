@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from airflow.models import BaseOperator
 from kedro.framework.project import configure_project
 from kedro.framework.session import KedroSession
-
-from airflow.models import BaseOperator
 
 # Paths are resolved relative to the repo root mounted at /opt/airflow inside the container.
 PROJECT_PATH = Path(__file__).parent.parent

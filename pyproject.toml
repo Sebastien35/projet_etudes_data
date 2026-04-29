@@ -99,6 +99,7 @@ docstring-code-format = true
 [tool.ruff]
 line-length = 88
 show-fixes = true
+src = ["src"]
 
 [tool.ruff.lint]
 select = [
@@ -115,6 +116,9 @@ ignore = [
     "PLR0913",  # too-many-arguments — common in framework callbacks
     "PLW0603",  # global-statement — intentional lazy singleton pattern
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["kedro_operator", "shared", "projet_etudes"]
 
 [tool.kedro_telemetry]
 project_id = "b02942fb0e324d578b73d8185cd058d2"
