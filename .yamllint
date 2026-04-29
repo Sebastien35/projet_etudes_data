@@ -1,0 +1,26 @@
+extends: default
+
+ignore: |
+  venv/
+  .venv/
+  conf/
+
+rules:
+  line-length:
+    max: 150
+    level: warning
+  document-start: disable
+  truthy:
+    allowed-values: ["true", "false", "on", "off", "yes", "no"]
+    level: warning
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+    check-multi-line-strings: false
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 0

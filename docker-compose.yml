@@ -36,7 +36,6 @@ services:
       - airflow-webserver
 
 
-
   # ── Airflow init ──────────────────────────────────────────────────────────
   airflow-init:
     <<: *airflow-common
@@ -96,8 +95,7 @@ services:
     volumes:
       - ollama-data:/root/.ollama
     # No host port binding — only reachable inside Docker by the api container.
-    entrypoint: ["/bin/sh", "-c",
-     "ollama serve & until ollama list 2>/dev/null; do sleep 2; done; ollama pull qwen2:1.5b; wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list 2>/dev/null; do sleep 2; done; ollama pull qwen2:1.5b; wait"]
     healthcheck:
       test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q qwen2"]
       interval: 15s
