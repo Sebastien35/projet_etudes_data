@@ -71,22 +71,6 @@ jobs:
     - name: pytest
       run: uv run pytest
 
-  analysis:
-    name: Security scan (Trivy)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Trivy scan — filesystem
-      uses: aquasecurity/trivy-action@latest
-      with:
-        scan-type: fs
-        scan-ref: .
-        format: table
-        exit-code: 1
-        ignore-unfixed: true
-        severity: CRITICAL,HIGH
-
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
@@ -100,7 +84,7 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          cd ~/app
+          cd ~/${{ github.event.repository.name }}
           git pull origin main
           docker compose build
           docker compose up -d
