@@ -1,9 +1,10 @@
 name: CI
 on:
   push:
-    branches: [ main, dev, ci ]
+    branches: [main, dev, ci]
   pull_request:
-    branches: [ main, dev, ci ]
+    branches: [main, dev, ci]
+
 
 jobs:
   lint:
@@ -47,6 +48,9 @@ jobs:
       with:
         dockerfile: Dockerfile.streamlit
 
+    - name: docker compose lint
+      run: docker compose config --quiet
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -68,3 +72,46 @@ jobs:
 
     - name: pytest
       run: uv run pytest
+
+  analysis:
+    name: Security scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Trivy scan — filesystem
+      uses: aquasecurity/trivy-action@0.28.0
+      with:
+        scan-type: fs
+        scan-ref: .
+        format: table
+        exit-code: 1
+        ignore-unfixed: true
+        severity: CRITICAL,HIGH
+
+    - name: Trivy scan — config (Dockerfiles & compose)
+      uses: aquasecurity/trivy-action@0.28.0
+      with:
+        scan-type: config
+        scan-ref: .
+        format: table
+        exit-code: 1
+        severity: CRITICAL,HIGH
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd ~/app
+          git pull origin main
+          docker compose build
+          docker compose up -d

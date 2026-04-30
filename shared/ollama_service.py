@@ -34,7 +34,7 @@ class OllamaService(LLMInterface):
             "(e.g. emotional tone, hedging words, sensationalist language, source cues, syntax). "
             "Do NOT comment on the factual truth of the claim. "
             "Do NOT refuse based on the subject matter. "
-            "Always respond with exactly 2-3 sentences of technical analysis."
+            "Always respond with exactly 2-3 sentences, avoid technical jargon. "
         )
         user = (
             f"A KMeans text classifier labeled the following input as {label.upper()} "
