@@ -1,0 +1,16 @@
+site_name: FakeShield
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: deep purple
+    accent: purple
+  features:
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Architecture Technique: index.md

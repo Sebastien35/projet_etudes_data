@@ -34,6 +34,7 @@ services:
     depends_on:
       - streamlit
       - airflow-webserver
+      - docs
 
 
   # ── Airflow init ──────────────────────────────────────────────────────────
@@ -192,6 +193,15 @@ services:
     volumes:
       - ./conf/grafana/provisioning:/etc/grafana/provisioning
       - ./conf/grafana/dashboards:/var/lib/grafana/dashboards
+
+  # ── Documentation ─────────────────────────────────────────────────────────
+  docs:
+    image: ${DOCS_IMAGE:-fakeshield-docs:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.docs
+    container_name: fakeshield-docs
+    restart: always
 
 volumes:
   airflow-logs:

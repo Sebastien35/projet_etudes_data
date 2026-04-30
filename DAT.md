@@ -144,7 +144,9 @@ projet_etudes_data/
 
 ## 4. Infrastructure Docker
 
-Le fichier `docker-compose.yml` définit huit services. Les ports exposés sur l'hôte sont :
+**Environnement de production :** EC2 Amazon Linux 2023 (`t`-type), Docker Compose v2. Le dépôt est cloné dans `~/<repo_name>` sur l'instance. Le déploiement est déclenché automatiquement par le pipeline CI/CD (push sur `main`).
+
+Le fichier `docker-compose.yml` définit dix services. Les ports exposés sur l'hôte sont :
 
 | Service | Image / Build | Port hôte | Port conteneur | Rôle |
 |---|---|---|---|---|
@@ -156,6 +158,9 @@ Le fichier `docker-compose.yml` définit huit services. Les ports exposés sur l
 | `ollama` | ollama/ollama | — | 11434 | LLM local (interne uniquement) |
 | `api` | Dockerfile.api | 8080 | 8080 | FastAPI classification |
 | `streamlit` | Dockerfile.streamlit | — | 8501 | Interface web (via nginx /) |
+| `prometheus` | prom/prometheus | 9090 | 9090 | Collecte de métriques |
+| `grafana` | grafana/grafana | 3000 | 3000 | Dashboards (via nginx /grafana/) |
+| `node-exporter` | prom/node-exporter | — | — | Métriques système hôte |
 
 **Dépendances de démarrage (Docker Compose `depends_on`) :**
 
@@ -635,24 +640,28 @@ Module de logique métier côté Streamlit :
 GET /*          → proxy_pass http://streamlit:8501
                   proxy_set_header Upgrade $http_upgrade (WebSocket)
 GET /airflow/*  → proxy_pass http://airflow-webserver:8080/airflow/
+GET /grafana/*  → proxy_pass http://grafana:3000
 ```
 
-Streamlit nécessite un upgrade WebSocket (`Connection: upgrade`) pour le rechargement dynamique. Airflow est exposé sous le sous-chemin `/airflow/` avec `AIRFLOW__WEBSERVER__BASE_URL=http://localhost/airflow` côté conteneur.
+Streamlit nécessite un upgrade WebSocket (`Connection: upgrade`) pour le rechargement dynamique. Airflow est exposé sous `/airflow/` avec `AIRFLOW__WEBSERVER__BASE_URL=http://localhost/airflow` côté conteneur. Grafana est exposé sous `/grafana/` avec `GF_SERVER_ROOT_URL` et `GF_SERVER_SERVE_FROM_SUB_PATH=true` côté conteneur.
+
+**Note :** Nginx écoute uniquement sur le port 80 (HTTP). HTTPS n'est pas configuré — utiliser `http://` pour accéder à l'instance EC2.
 
 ---
 
-## 12. Observabilité — Prometheus
+## 12. Observabilité — Prometheus & Grafana
 
-**Fichier de configuration :** `conf/prometheus.yml`
+**Fichiers :** `conf/prometheus.yml`, `conf/grafana/`
 
-Les services `prometheus` et `grafana` sont présents dans `docker-compose.yml` mais **commentés** (non déployés en production). Pour les activer, décommenter les sections et relancer `docker compose up`.
+Les services `prometheus` et `grafana` sont **déployés** dans `docker-compose.yml`.
 
-Quand déployés :
-- Prometheus scrape l'API sur `/metrics` (port 8080).
-- Grafana s'appuie sur Prometheus comme datasource.
-- Dashboards provisionnables via `conf/grafana/`.
+- Prometheus scrape l'API sur `/metrics` (port 8080) et le `node-exporter` pour les métriques système (CPU, RAM, disque).
+- Grafana s'appuie sur Prometheus comme datasource ; dashboards provisionnés automatiquement via `conf/grafana/provisioning/` et `conf/grafana/dashboards/`.
+- Grafana est accessible en mode anonyme (`GF_AUTH_ANONYMOUS_ENABLED=true`, rôle `Viewer`).
 
-Les métriques sont toujours collectées et exposées par l'API même sans Prometheus (le client prometheus-client est actif).
+**Accès :** `http://<EC2_IP>/grafana/`
+
+**`node-exporter`** : conteneur `prom/node-exporter` monté sur `/proc`, `/sys`, `/` (mode `pid: host`) — expose les métriques hôte sans port public.
 
 ---
 
@@ -680,27 +689,45 @@ Airflow est utilisé pour **planifier l'exécution périodique** des pipelines K
 **Fichier :** `.github/workflows/ci.yml`
 **Déclencheurs :** push ou pull request sur les branches `main`, `dev`, `ci`
 
-### Job `Lint`
+Les jobs s'enchaînent en séquence : **lint → test → deploy**. Le job `analysis` s'exécute en parallèle, indépendamment.
+
+### Job `lint`
 
 1. Checkout du code
-2. Installation de `uv` (astral-sh/setup-uv@v5)
-3. `uv python install 3.10`
-4. `uv sync --extra dev` (installe black, ruff, pre-commit)
-5. `black --check .` — vérification du formatage
-6. `ruff check .` — analyse statique (pyflakes, pycodestyle, isort, pyupgrade, pylint, print statements)
-7. `hadolint` sur `Dockerfile` et `Dockerfile.airflow`
+2. Installation de `uv` + `uv python install 3.10` + `uv sync --extra dev`
+3. `ruff check .` — analyse statique
+4. `pylint src/` — analyse de qualité
+5. `yamllint .` — validation YAML
+6. `hadolint` sur les 4 Dockerfiles (`Dockerfile`, `Dockerfile.airflow`, `Dockerfile.api`, `Dockerfile.streamlit`)
 
-### Job `Test`
+### Job `test` *(needs: lint)*
 
 1. Checkout + setup uv identique
-2. Injection des secrets GitHub comme variables d'environnement (pour les tests nécessitant les credentials Bluesky / MongoDB)
-3. `uv run pytest` avec couverture (`pytest-cov`, rapport `term-missing`)
+2. Injection des secrets GitHub comme variables d'environnement via `jq` (`toJson(secrets)`) — pour les tests nécessitant les credentials Bluesky / MongoDB
+3. `uv run pytest`
 
-**Configuration Ruff (`pyproject.toml`) :**
-- Règles actives : F, W, E, I, UP, PL, T201
-- Ignorées : E501 (délégué à Black), PLR0913 (many-args accepté dans les callbacks), PLW0603 (singleton global intentionnel)
+### Job `deploy` *(needs: test, main uniquement)*
 
-**Pré-commit (`.pre-commit-config.yaml`) :** hooks locaux via `pre-commit run --all-files` (`make lint`).
+SSH sur l'instance EC2 via `appleboy/ssh-action@v1` :
+
+```bash
+cd ~/<repo_name>
+git pull origin main
+docker compose build
+docker compose up -d --pull never
+```
+
+`--pull never` empêche Docker de tenter de puller les images custom depuis un registry externe.
+
+**Secrets requis :** `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`
+
+### Job `analysis` *(parallèle, toutes branches)*
+
+Scan de sécurité Trivy en deux passes :
+1. `scan-type: fs` — vulnérabilités dans les dépendances (requirements, pyproject.toml…)
+2. `scan-type: config` — mauvaises configurations dans les Dockerfiles et docker-compose
+
+Sévérités bloquantes : `CRITICAL`, `HIGH`
 
 ---
 
@@ -800,7 +827,27 @@ Transversal :
 - Fichier `.env` rempli (voir §15)
 - Connexion internet au premier démarrage (pull Ollama ~900 MB)
 
-### Déploiement complet (Docker)
+### Déploiement production (EC2)
+
+Le déploiement est automatique via GitHub Actions à chaque push sur `main`. Manuellement :
+
+```bash
+# Sur l'instance EC2
+cd ~/projet_etudes_data
+git pull origin main
+docker compose build
+docker compose up -d --pull never
+```
+
+L'interface est accessible sur `http://<EC2_IP>/`.
+
+| URL | Service |
+|---|---|
+| `http://<EC2_IP>/` | Streamlit (frontend) |
+| `http://<EC2_IP>/airflow/` | Airflow UI |
+| `http://<EC2_IP>/grafana/` | Grafana dashboards |
+
+### Déploiement local (Docker)
 
 ```bash
 make up
