@@ -73,7 +73,6 @@ jobs:
 
   analysis:
     name: Security scan (Trivy)
-    depends_on: test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
