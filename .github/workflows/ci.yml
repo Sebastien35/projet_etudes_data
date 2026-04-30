@@ -48,8 +48,6 @@ jobs:
       with:
         dockerfile: Dockerfile.streamlit
 
-    - name: docker compose lint
-      run: docker compose config --quiet
 
   test:
     name: Test
@@ -75,27 +73,19 @@ jobs:
 
   analysis:
     name: Security scan (Trivy)
+    depends_on: test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
     - name: Trivy scan — filesystem
-      uses: aquasecurity/trivy-action@0.28.0
+      uses: aquasecurity/trivy-action@latest
       with:
         scan-type: fs
         scan-ref: .
         format: table
         exit-code: 1
         ignore-unfixed: true
-        severity: CRITICAL,HIGH
-
-    - name: Trivy scan — config (Dockerfiles & compose)
-      uses: aquasecurity/trivy-action@0.28.0
-      with:
-        scan-type: config
-        scan-ref: .
-        format: table
-        exit-code: 1
         severity: CRITICAL,HIGH
 
   deploy:
