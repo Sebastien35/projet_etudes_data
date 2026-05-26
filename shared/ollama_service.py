@@ -13,6 +13,28 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 
+class ProbabiltyService:
+    """Service de classification basé sur des seuils de probabilité pour déterminer les étiquettes de fiabilité."""
+    def __init__(self, likely_threshold=0.60, probable_threshold=0.40, possible_threshold=0.20):
+        self.likely_threshold = likely_threshold
+        self.probable_threshold = probable_threshold
+        self.possible_threshold = possible_threshold
+
+    def classify(self, probability: float) -> str:
+        """Classifie la fiabilité en fonction de la probabilité donnée."""
+        if probability >= self.likely_threshold:
+            return "true"
+        elif probability >= self.probable_threshold:
+            return "very likely true"
+        elif probability >= self.possible_threshold:
+            return "uncertain"
+        elif probability > 0:
+            return "very likely false"
+        else:
+            return "false"
+
+
+class_service = ProbabiltyService()
 class OllamaService(LLMInterface):
     def __init__(self):
         super().__init__(model_name=OLLAMA_MODEL, api_key=None)
@@ -21,7 +43,7 @@ class OllamaService(LLMInterface):
 
     async def explain(self, claim: str, verdict: str, probability: float) -> str:
         pct = int(round(probability * 100))
-        tone = "reliable" if pct >= 50 else "potentially misleading"
+        tone = "reliable" if pct >= class_service.probable_threshold else "potentially misleading"
 
         system = (
             "RULE #1 — LANGUAGE: Detect the language of the TEXT and write your entire response in that exact language. "
