@@ -1,3 +1,11 @@
+class ProbabilityScoreModel:
+    """Modèle de seuils pour les scores de probabilité (Évite les magic values)."""
+    likely: float = 0.60    # Seuil pour la couleur de succès (Anciennement 0.6)
+    probable: float = 0.40  # Seuil pour la couleur d'avertissement (Anciennement 0.4)
+    possible: float = 0.20
+
+prob_score_model = ProbabilityScoreModel()
+
 class ColorChart:
     """Dark glassmorphism — Vision OS inspired, premium dark."""
 
@@ -47,10 +55,12 @@ class ColorChart:
 
     @classmethod
     def prob_color(cls, probability: float) -> str:
-        """Color based on likelihood of being real: green=high, yellow=mid, red=low."""
-        if probability >= 0.6:
+        """Color based on likelihood of being real: green=high, yellow=mid, red=low.
+        Utilise prob_score_model pour éliminer les magic values (Ruff PLR2004).
+        """
+        if probability >= prob_score_model.likely:
             return cls.SUCCESS_COLOR
-        if probability >= 0.4:
+        if probability >= prob_score_model.probable:
             return cls.WARNING_COLOR
         return cls.DANGER_COLOR
 

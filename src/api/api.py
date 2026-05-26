@@ -22,15 +22,11 @@ class QuestionRequest(BaseModel):
     question: str
 
 
-def _reliability_label(probability: float) -> str:
-    if probability >= 0.75:
-        return "Likely reliable"
-    if probability >= 0.50:
-        return "Possibly reliable"
-    if probability >= 0.25:
-        return "Possibly misleading"
-    return "Likely misleading"
-
+class ProbabilityScoreModel:
+    """Modèle de seuils pour les scores de probabilité (Évite les magic values)."""
+    likely: float = 0.60    # Seuil pour la couleur de succès (Anciennement 0.6)
+    probable: float = 0.40  # Seuil pour la couleur d'avertissement (Anciennement 0.4)
+    possible: float = 0.20
 
 @app.post("/ask")
 async def ask(request: QuestionRequest):
@@ -45,7 +41,13 @@ async def ask(request: QuestionRequest):
         result = get_kmeans_service().classify(request.question)
 
     prob = result["probability"]
-    result["label"] = _reliability_label(prob)
+    result["label"] =   "true" if prob >= ProbabilityScoreModel.likely else (
+        "very likely true" if prob >= ProbabilityScoreModel.probable else (
+            "uncertain" if prob >= ProbabilityScoreModel.possible else (
+                "very likely false" if prob > 0 else "false"
+            )
+        )
+    )
     result["score_pct"] = int(round(prob * 100))
 
     # 2. Ollama — natural language explanation (best-effort)
