@@ -33,6 +33,7 @@ dependencies = [
     "prompt-toolkit==3.0.51",
     "prometheus-fastapi-instrumentator",
     "tensorflow",
+    "sentence-transformers>=3.0.0",
     "transformers>=4.40.0",
     "torch>=2.0.0",
     "codecarbon",

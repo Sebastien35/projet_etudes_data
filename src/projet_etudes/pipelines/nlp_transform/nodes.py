@@ -84,6 +84,7 @@ def save_to_db(df: pd.DataFrame) -> int:
                 "unique_id": record["unique_id"],
                 "utc_saved_at": pd.Timestamp.now(),
                 "category": record["category"],
+                "source_label": record.get("source_label", "unverified"),
                 "normalized_text": record["normalized_text"],
             }
         )

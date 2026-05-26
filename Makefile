@@ -50,6 +50,7 @@ run2:
 .PHONY: run3
 run3:
 	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=vectorisation
+	PYTHONPATH=. PYTHONWARNINGS="default:Kedro is not yet fully compatible" kedro run --pipeline=train_reliability
 
 .PHONY: run4
 run4:

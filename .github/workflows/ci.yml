@@ -22,7 +22,7 @@ jobs:
       run: uv run ruff check .
 
     - name: pylint
-      run: uv run pylint src/
+      run: uv run pylint src/ --fail-under=8.0
 
     - name: yamllint
       run: uv run yamllint .

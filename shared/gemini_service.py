@@ -24,22 +24,19 @@ class GeminiService(LLMInterface):
         Ask Gemini to explain why a claim was classified with a given verdict.
         Returns a plain-text explanation (2-3 sentences).
         """
-        MIN = 0.5
-        is_real = probability >= MIN
-        confidence_pct = (
-            int(probability * 100) if is_real else int((1 - probability) * 100)
-        )
-        label = "real news" if is_real else "fake news"
+        pct = int(round(probability * 100))
 
-        prompt = f"""You are a fact-checker assistant.
-A KMeans + Ollama (llama3.2:3b) pipeline classified the following claim as {label.upper()} with {confidence_pct}% confidence (verdict: "{verdict}").
+        prompt = f"""RULE #1 — LANGUAGE: You MUST write your entire response in the same language as the CLAIM below. If the claim is in French, respond in French. If it is in Spanish, respond in Spanish. Never switch to English.
+
+You are a fact-checker assistant.
+A KMeans + Ollama (llama3.2:3b) pipeline assigned {pct}% likelihood of being real information to the following claim.
 
 In 2-3 sentences, explain what signals in the claim support this classification.
-Be factual and concise. Do not repeat the verdict label.
+Be factual and concise. Do not repeat the percentage.
 
 CLAIM: {claim}
 
-Explanation:"""
+Explanation (in the same language as the CLAIM):"""
 
         start = time.perf_counter()
         response = self.client.models.generate_content(

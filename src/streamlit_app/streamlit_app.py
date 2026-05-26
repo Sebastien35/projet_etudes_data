@@ -493,115 +493,124 @@ with nav_tab1:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            if msg.get("is_html"):
-                st.html(msg["content"])
-            else:
-                st.markdown(msg["content"])
-
+    # Declare the messages area FIRST so it sits above the input in the DOM,
+    # then declare the input, then fill the container — this keeps the input
+    # pinned at the bottom regardless of how many messages accumulate.
+    messages_container = st.container()
     user_input = st.chat_input("Paste a claim, post, or headline…")
 
-    if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
+    with messages_container:
+        if not st.session_state.messages and not user_input:
+            st.markdown(
+                f"""
+            <div style="text-align:center; padding:3rem 0 1.5rem;
+                        color:{C.TEXT_SUBTLE}; font-size:0.86rem; letter-spacing:0.02em;">
+                Enter a claim below to get started
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
 
-        with st.chat_message("assistant"):
-            with st.spinner("Checking…"):
-                result = send_message_api(user_input)
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                if msg.get("is_html"):
+                    st.html(msg["content"])
+                else:
+                    st.markdown(msg["content"])
 
-            verdict = result["verdict"]
-            color = result["color"]
-            expl = result["explanation"]
-            prob = result["probability"]
-            source = result["based_on"]
+        if user_input:
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            with st.chat_message("user"):
+                st.markdown(user_input)
 
-            source_label = {
-                "kmeans": "◆ KMeans classifier",
-                "rag": "◆ Bluesky corpus",
-                "general_knowledge": "◆ General knowledge",
-                "error": "◆ API error",
-            }.get(source, f"◆ {source}")
+            with st.chat_message("assistant"):
+                with st.spinner("Checking…"):
+                    result = send_message_api(user_input)
 
-            prob_bar = ""
-            if prob is not None:
-                pct = int(prob * 100)
-                prob_bar = f"""
-                <div style="margin:0.75rem 0 0.4rem;">
-                    <div style="display:flex; justify-content:space-between;
-                                font-size:0.73rem; color:{C.TEXT_MUTED};
-                                margin-bottom:6px; letter-spacing:0.04em;
-                                text-transform:uppercase;">
-                        <span>Confidence</span><span>{pct}%</span>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.07); border-radius:99px;
-                                height:5px; overflow:hidden;">
-                        <div style="width:{pct}%; height:100%;
-                                    background:linear-gradient(90deg, {color}88, {color});
-                                    border-radius:99px;
-                                    box-shadow: 0 0 8px {color}60;">
+                verdict = result["verdict"]
+                color = result["color"]
+                expl = result["explanation"]
+                prob = result["probability"]
+                source = result["based_on"]
+
+                source_label = {
+                    "reliability_classifier": "◆ Supervised classifier",
+                    "kmeans": "◆ KMeans fallback (reliability model not trained)",
+                    "rag": "◆ Bluesky corpus",
+                    "general_knowledge": "◆ General knowledge",
+                    "error": "◆ API error",
+                }.get(source, f"◆ {source}")
+
+                prob_bar = ""
+                if prob is not None:
+                    pct = int(round(prob * 100))
+                    prob_bar = f"""
+                    <div style="margin:0.75rem 0 0.4rem;">
+                        <div style="display:flex; justify-content:space-between;
+                                    font-size:0.73rem; color:{C.TEXT_MUTED};
+                                    margin-bottom:6px; letter-spacing:0.04em;
+                                    text-transform:uppercase;">
+                            <span>Likelihood of being real</span><span>{pct}%</span>
                         </div>
+                        <div style="background:rgba(255,255,255,0.07); border-radius:99px;
+                                    height:5px; overflow:hidden;">
+                            <div style="width:{pct}%; height:100%;
+                                        background:linear-gradient(90deg, {color}88, {color});
+                                        border-radius:99px;
+                                        box-shadow: 0 0 8px {color}60;">
+                            </div>
+                        </div>
+                    </div>"""
+
+                html = f"""
+                <div style="
+                    background: rgba(255,255,255,0.04);
+                    border: 1px solid rgba(255,255,255,0.09);
+                    border-radius: 18px;
+                    padding: 1rem 1.15rem;
+                    backdrop-filter: blur(24px);
+                    -webkit-backdrop-filter: blur(24px);
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.4),
+                                inset 0 1px 0 rgba(255,255,255,0.06);
+                ">
+                    <div style="
+                        display: inline-flex; align-items: center; gap: 6px;
+                        background: {color}18;
+                        border: 1.5px solid {color}55;
+                        border-radius: 99px;
+                        padding: 0.22rem 0.9rem;
+                        font-size: 0.76rem; font-weight: 700;
+                        color: {color};
+                        letter-spacing: 0.06em; text-transform: uppercase;
+                        box-shadow: 0 0 14px {color}30;
+                    ">
+                        {verdict}
+                    </div>
+                    {prob_bar}
+                    <div style="font-size:0.9rem; color:{C.TEXT_MAIN};
+                                line-height:1.7; margin-top:0.55rem;">
+                        {expl}
+                    </div>
+                    <div style="font-size:0.70rem; color:{C.TEXT_SUBTLE};
+                                margin-top:0.65rem; padding-top:0.55rem;
+                                border-top:1px solid rgba(255,255,255,0.06);
+                                letter-spacing:0.04em;">
+                        {source_label}
                     </div>
                 </div>"""
 
-            html = f"""  # pylint: disable=invalid-name
-            <div style="
-                background: rgba(255,255,255,0.04);
-                border: 1px solid rgba(255,255,255,0.09);
-                border-radius: 18px;
-                padding: 1rem 1.15rem;
-                backdrop-filter: blur(24px);
-                -webkit-backdrop-filter: blur(24px);
-                box-shadow: 0 8px 32px rgba(0,0,0,0.4),
-                            inset 0 1px 0 rgba(255,255,255,0.06);
-            ">
-                <div style="
-                    display: inline-flex; align-items: center; gap: 6px;
-                    background: {color}18;
-                    border: 1.5px solid {color}55;
-                    border-radius: 99px;
-                    padding: 0.22rem 0.9rem;
-                    font-size: 0.76rem; font-weight: 700;
-                    color: {color};
-                    letter-spacing: 0.06em; text-transform: uppercase;
-                    box-shadow: 0 0 14px {color}30;
-                ">
-                    {verdict}
-                </div>
-                {prob_bar}
-                <div style="font-size:0.9rem; color:{C.TEXT_MAIN};
-                            line-height:1.7; margin-top:0.55rem;">
-                    {expl}
-                </div>
-                <div style="font-size:0.70rem; color:{C.TEXT_SUBTLE};
-                            margin-top:0.65rem; padding-top:0.55rem;
-                            border-top:1px solid rgba(255,255,255,0.06);
-                            letter-spacing:0.04em;">
-                    {source_label}
-                </div>
-            </div>"""
+                st.html(html)
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": html, "is_html": True}
+                )
 
-            st.html(html)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": html, "is_html": True}
-            )
+        # Bottom padding so the last message isn't hidden behind the input bar
+        st.markdown("<div style='height:4rem'></div>", unsafe_allow_html=True)
 
-    if not st.session_state.messages:
-        st.markdown(
-            f"""
-        <div style="text-align:center; padding:3rem 0 1.5rem;
-                    color:{C.TEXT_SUBTLE}; font-size:0.86rem; letter-spacing:0.02em;">
-            ↑ Enter a claim above to get started
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-    if st.button("↺  Clear conversation", key="clear_chat"):
-        st.session_state.messages = []
-        st.rerun()
+    if st.session_state.messages:
+        if st.button("↺  Clear conversation", key="clear_chat"):
+            st.session_state.messages = []
+            st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════

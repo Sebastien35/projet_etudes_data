@@ -13,6 +13,28 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 
 
+class ProbabiltyService:
+    """Service de classification basé sur des seuils de probabilité pour déterminer les étiquettes de fiabilité."""
+    def __init__(self, likely_threshold=0.60, probable_threshold=0.40, possible_threshold=0.20):
+        self.likely_threshold = likely_threshold
+        self.probable_threshold = probable_threshold
+        self.possible_threshold = possible_threshold
+
+    def classify(self, probability: float) -> str:
+        """Classifie la fiabilité en fonction de la probabilité donnée."""
+        if probability >= self.likely_threshold:
+            return "true"
+        elif probability >= self.probable_threshold:
+            return "very likely true"
+        elif probability >= self.possible_threshold:
+            return "uncertain"
+        elif probability > 0:
+            return "very likely false"
+        else:
+            return "false"
+
+
+class_service = ProbabiltyService()
 class OllamaService(LLMInterface):
     def __init__(self):
         super().__init__(model_name=OLLAMA_MODEL, api_key=None)
@@ -20,27 +42,26 @@ class OllamaService(LLMInterface):
         logger.info(f"OllamaService targeting {self._url} with model {self.model_name}")
 
     async def explain(self, claim: str, verdict: str, probability: float) -> str:
-        MIN_PROBABILITY = 0.5
-        is_real = probability >= MIN_PROBABILITY
-        confidence_pct = (
-            int(probability * 100) if is_real else int((1 - probability) * 100)
-        )
-        label = "real news" if is_real else "fake news"
+        pct = int(round(probability * 100))
+        tone = "reliable" if pct >= class_service.probable_threshold else "potentially misleading"
 
         system = (
-            "You are a machine learning interpretability assistant. "
-            "Your sole task is to explain why a text classifier assigned a label to a piece of text, "
-            "based purely on observable linguistic and structural features "
-            "(e.g. emotional tone, hedging words, sensationalist language, source cues, syntax). "
-            "Do NOT comment on the factual truth of the claim. "
-            "Do NOT refuse based on the subject matter. "
-            "Always respond with exactly 2-3 sentences, avoid technical jargon. "
+            "RULE #1 — LANGUAGE: Detect the language of the TEXT and write your entire response in that exact language. "
+            "Never default to English if the text is in another language. "
+            "You are a media literacy assistant helping everyday readers understand why a piece of text "
+            "reads as credible or suspicious. "
+            "Base your explanation only on observable features of the writing: tone, word choice, "
+            "emotional language, hedging, sensationalism, structure. "
+            "Do NOT judge whether the claim is factually true or false. "
+            "Do NOT refuse based on the topic. "
+            "Write exactly 2-3 short sentences. Use plain language — no technical terms."
         )
         user = (
-            f"A KMeans text classifier labeled the following input as {label.upper()} "
-            f'with {confidence_pct}% confidence (verdict: "{verdict}").\n\n'
-            "Identify 2-3 linguistic or structural features in the text that likely drove this classification. "
-            "Be concise and technical. Do not repeat the verdict.\n\n"
+            f"This text was rated {pct}% likely to be real information — it reads as {tone}.\n\n"
+            "In 2-3 sentences, explain what features of the writing style led to this rating. "
+            "Focus on tone, word choice, and how the information is presented. "
+            "Do not repeat the score. "
+            "IMPORTANT: respond in the same language as the TEXT below.\n\n"
             f"TEXT: {claim}"
         )
 

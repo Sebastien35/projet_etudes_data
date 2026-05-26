@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from shared.kmeans_service import get_kmeans_service
 from shared.metrics import VERDICT_COUNTER
 from shared.ollama_service import OllamaService
+from shared.reliability_service import get_reliability_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,23 +22,46 @@ class QuestionRequest(BaseModel):
     question: str
 
 
+class ProbabilityScoreModel:
+    """Modèle de seuils pour les scores de probabilité (Évite les magic values)."""
+    likely: float = 0.60    # Seuil pour la couleur de succès (Anciennement 0.6)
+    probable: float = 0.40  # Seuil pour la couleur d'avertissement (Anciennement 0.4)
+    possible: float = 0.20
+
 @app.post("/ask")
 async def ask(request: QuestionRequest):
-    # 1. KMeans — primary classifier
-    result = get_kmeans_service().classify(request.question)
+    # 1. Reliability classifier — primary scorer (supervised, trained on trusted outlets)
+    try:
+        result = get_reliability_service().classify(request.question)
+    except FileNotFoundError:
+        logger.warning(
+            "Reliability model not found — falling back to KMeans. "
+            "Run: kedro run --pipeline train_reliability"
+        )
+        result = get_kmeans_service().classify(request.question)
+
+    prob = result["probability"]
+    result["label"] =   "true" if prob >= ProbabilityScoreModel.likely else (
+        "very likely true" if prob >= ProbabilityScoreModel.probable else (
+            "uncertain" if prob >= ProbabilityScoreModel.possible else (
+                "very likely false" if prob > 0 else "false"
+            )
+        )
+    )
+    result["score_pct"] = int(round(prob * 100))
 
     # 2. Ollama — natural language explanation (best-effort)
     try:
         result["explanation"] = await ollama_service.explain(
             claim=request.question,
             verdict=result["verdict"],
-            probability=result["probability"],
+            probability=prob,
         )
     except Exception as e:
         logger.warning(f"Ollama explanation failed: {e}")
         result["explanation"] = ""
 
-    VERDICT_COUNTER.labels(verdict=result["verdict"]).inc()
+    VERDICT_COUNTER.labels(verdict=result["label"]).inc()
     return result
 
 

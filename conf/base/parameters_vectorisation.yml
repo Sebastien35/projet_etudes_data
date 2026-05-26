@@ -1,5 +1,7 @@
 vectorisation:
+  embedding_model: "paraphrase-multilingual-MiniLM-L12-v2"
   n_clusters: 2
-  max_features: 5000
-  vectorizer_path: "data/06_models/tfidf_vectorizer.pkl"
   kmeans_path: "data/06_models/kmeans_model.pkl"
+  reliability_min_reliable: 1
+  reliability_min_misinfo: 1
+  reliability_classifier_path: "data/06_models/reliability_classifier.pkl"

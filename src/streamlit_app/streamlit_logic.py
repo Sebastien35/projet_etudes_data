@@ -38,12 +38,18 @@ def send_message_api(message: str) -> dict:
             "based_on": "error",
         }
 
-    verdict = data.get("verdict", "uncertain")
+    verdict = data.get("verdict", "?% real")
+    prob = data.get("probability")
+    color = (
+        ColorChart.prob_color(prob)
+        if prob is not None
+        else ColorChart.TEXT_MUTED
+    )
     return {
         "verdict": verdict,
-        "color": ColorChart.verdict_color(verdict),
+        "color": color,
         "explanation": data.get("explanation", ""),
-        "probability": data.get("probability"),
+        "probability": prob,
         "based_on": data.get("based_on", "unknown"),
     }
 
