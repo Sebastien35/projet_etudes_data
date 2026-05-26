@@ -22,30 +22,15 @@ jobs:
       run: uv run ruff check .
 
     - name: pylint
-      run: uv run pylint src/
+      run: uv run pylint src/ --fail-under=8.0
 
     - name: yamllint
       run: uv run yamllint .
 
-    - name: hadolint (Dockerfile)
+    - name: hadolint
       uses: hadolint/hadolint-action@v3.1.0
       with:
-        dockerfile: Dockerfile
-
-    - name: hadolint (Dockerfile.airflow)
-      uses: hadolint/hadolint-action@v3.1.0
-      with:
-        dockerfile: Dockerfile.airflow
-
-    - name: hadolint (Dockerfile.api)
-      uses: hadolint/hadolint-action@v3.1.0
-      with:
-        dockerfile: Dockerfile.api
-
-    - name: hadolint (Dockerfile.streamlit)
-      uses: hadolint/hadolint-action@v3.1.0
-      with:
-        dockerfile: Dockerfile.streamlit
+        dockerfile: "Dockerfile Dockerfile.airflow Dockerfile.api Dockerfile.streamlit"
 
 
   test:
