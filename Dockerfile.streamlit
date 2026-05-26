@@ -1,10 +1,12 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-RUN uv pip install --system --no-cache \
+RUN uv venv /opt/venv\
+    uv pip install --no-cache \
+    --python /opt/venv/bin/python \
     "streamlit" \
     "altair" \
     "pandas" \
@@ -12,15 +14,20 @@ RUN uv pip install --system --no-cache \
     "pymongo" \
     "python-dotenv"
 
+# --- Runtime ---
+FROM python:3.12-slim AS runtime
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+
 COPY shared/ ./shared/
 COPY src/streamlit_app/ ./src/streamlit_app/
 
-# Streamlit config (toolbar/topbar settings)
 RUN mkdir -p /app/.streamlit
 COPY src/streamlit_app/config.toml /app/.streamlit/config.toml
 
-# /app        → makes `import shared` work
-# /app/src/streamlit_app → makes bare `from streamlit_logic import …` work
+ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONPATH=/app:/app/src/streamlit_app
 
 EXPOSE 8501
