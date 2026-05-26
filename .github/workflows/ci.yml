@@ -27,10 +27,25 @@ jobs:
     - name: yamllint
       run: uv run yamllint .
 
-    - name: hadolint
+    - name: hadolint (Dockerfile)
       uses: hadolint/hadolint-action@v3.1.0
       with:
-        dockerfile: "Dockerfile Dockerfile.airflow Dockerfile.api Dockerfile.streamlit"
+        dockerfile: Dockerfile
+
+    - name: hadolint (Dockerfile.airflow)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile.airflow
+
+    - name: hadolint (Dockerfile.api)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile.api
+
+    - name: hadolint (Dockerfile.streamlit)
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile.streamlit
 
 
   test:
