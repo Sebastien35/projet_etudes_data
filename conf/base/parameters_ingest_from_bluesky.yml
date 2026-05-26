@@ -1,5 +1,62 @@
-# This is a boilerplate parameters config generated for pipeline 'ingest_from_bluesky'
-# using Kedro 1.0.0.
-#
-# Documentation for this file format can be found in "Parameters"
-# Link: https://docs.kedro.org/en/1.0.0/configuration/parameters.html
+ingest_from_bluesky:
+  min_reliable_posts: 50
+  limit_per_reliable_account: 20
+  # Bluesky handles of verified news organisations (fetched directly, always labelled reliable)
+  reliable_accounts:
+    - "reuters.com"
+    - "apnews.com"
+    - "afp.com"
+    - "bbc.com"
+    - "theguardian.com"
+    - "lemonde.fr"
+    - "nytimes.com"
+    - "npr.org"
+    - "bloomberg.com"
+    - "politico.com"
+  reliable_domains:
+    # Wire services
+    - "reuters.com"
+    - "apnews.com"
+    - "afp.com"
+    # US outlets
+    - "nytimes.com"
+    - "washingtonpost.com"
+    - "wsj.com"
+    - "usatoday.com"
+    - "npr.org"
+    - "pbs.org"
+    - "cbsnews.com"
+    - "nbcnews.com"
+    - "abcnews.com"
+    - "cnn.com"
+    - "politico.com"
+    - "thehill.com"
+    - "theatlantic.com"
+    - "newyorker.com"
+    - "foreignpolicy.com"
+    - "bloomberg.com"
+    # UK outlets
+    - "bbc.co.uk"
+    - "bbc.com"
+    - "theguardian.com"
+    - "independent.co.uk"
+    - "ft.com"
+    - "economist.com"
+    - "sky.com"
+    # French outlets
+    - "lemonde.fr"
+    - "lefigaro.fr"
+    - "liberation.fr"
+    # German outlets
+    - "spiegel.de"
+    - "faz.net"
+    - "zeit.de"
+    # Government / intergovernmental
+    - "who.int"
+    - "un.org"
+    - "ec.europa.eu"
+    # Fact-checkers
+    - "snopes.com"
+    - "factcheck.org"
+    - "politifact.com"
+    - "fullfact.org"

@@ -14,6 +14,9 @@ from projet_etudes.pipelines.nlp_transform.pipeline import (
 from projet_etudes.pipelines.vectorisation.pipeline import (
     create_pipeline as vectorisation_pipeline,
 )
+from projet_etudes.pipelines.vectorisation.pipeline import (
+    create_reliability_pipeline,
+)
 
 
 def register_pipelines() -> dict[str, Pipeline]:
@@ -22,6 +25,7 @@ def register_pipelines() -> dict[str, Pipeline]:
         "ingest_from_bluesky": ingest_pipeline(),
         "nlp_transform": nlp_pipeline(),
         "vectorisation": vectorisation_pipeline(),
+        "train_reliability": create_reliability_pipeline(),
         "emotion_classification": emotion_pipeline(),
     }
     # __default__ excludes model_training (one-off supervised training on Kaggle data)

@@ -46,6 +46,15 @@ class ColorChart:
         return cls.VERDICT_COLORS.get(verdict.lower(), cls.TEXT_MUTED)
 
     @classmethod
+    def prob_color(cls, probability: float) -> str:
+        """Color based on likelihood of being real: green=high, yellow=mid, red=low."""
+        if probability >= 0.6:
+            return cls.SUCCESS_COLOR
+        if probability >= 0.4:
+            return cls.WARNING_COLOR
+        return cls.DANGER_COLOR
+
+    @classmethod
     def get_bg_main(cls) -> str:
         return cls.GLASS_BG
 

@@ -53,6 +53,40 @@ KMeans + TF-IDF artifacts ──► FastAPI /ask ──► Streamlit UI
                            (explication NLP)
 ```
 
+### Diagramme de cas d'utilisation
+
+```mermaid
+graph LR
+    subgraph Acteurs
+        User(["👤 Utilisateur"])
+        Engineer(["⚙️ Data Engineer"])
+        Scheduler(["🔄 Airflow"])
+        Bluesky(["🌐 Bluesky"])
+    end
+
+    subgraph "FakeShield — Cas d'utilisation"
+        UC1(["Fact-checker une affirmation"])
+        UC2(["Consulter les analytics du corpus"])
+        UC3(["Consulter le rapport énergétique"])
+        UC4(["Ingérer des posts Bluesky"])
+        UC5(["Nettoyer les posts — NLP"])
+        UC6(["Vectoriser et classifier les posts"])
+        UC7(["Entraîner le modèle LSTM"])
+    end
+
+    User --> UC1
+    User --> UC2
+    User --> UC3
+    Engineer --> UC4
+    Engineer --> UC5
+    Engineer --> UC6
+    Engineer --> UC7
+    Scheduler --> UC4
+    Scheduler --> UC5
+    Scheduler --> UC6
+    UC4 -.->|récupère posts| Bluesky
+```
+
 ---
 
 ## 2. Structure du dépôt
@@ -188,6 +222,53 @@ airflow-init ───────────► database
 - `Dockerfile.streamlit` : python:3.12-slim, uv pip install (streamlit, altair, pandas, pymongo…), copie `shared/` et `src/streamlit_app/`, `config.toml` → `/app/.streamlit/`, expose 8501.
 - `Dockerfile.airflow` : apache/airflow:2.8.4-python3.10, uv pip install (kedro, kedro-airflow, atproto, codecarbon, scikit-learn…), correctif `typing_extensions` pour compatibilité pydantic-core.
 
+### Diagramme d'architecture — Infrastructure Docker
+
+```mermaid
+graph TD
+    Internet(["🌐 Internet :80"]) --> Nginx["nginx\nreverse proxy"]
+
+    subgraph "Interface utilisateur"
+        Nginx -->|"/"| ST["streamlit\n:8501"]
+        Nginx -->|"/airflow/"| AW["airflow-webserver\n:8080"]
+        Nginx -->|"/grafana/"| GF["grafana\n:3000"]
+    end
+
+    subgraph "Backend de classification"
+        ST -->|"POST /ask"| API["FastAPI\n:8080"]
+        API --> OL["Ollama\n:11434 · qwen2:1.5b"]
+        API --->|"volume ./data"| PKL[("data/06_models/\ntfidf_vectorizer.pkl\nkmeans_model.pkl")]
+    end
+
+    subgraph "Orchestration Airflow"
+        AW --> AI["airflow-init\none-shot"]
+        AS["airflow-scheduler"] --> AI
+        AI --> MDB["MariaDB\n:3306"]
+    end
+
+    subgraph "Observabilité"
+        PR["Prometheus\n:9090"] -->|"scrape /metrics"| API
+        NE["node-exporter"] --> PR
+        GF --> PR
+    end
+
+    subgraph "Persistance MongoDB — bluesky_db"
+        C1[("posts")]
+        C2[("cleaned_posts")]
+        C3[("classified_posts")]
+        C4[("energy_logs")]
+    end
+
+    API --> C3
+    ST --> C2
+    ST --> C3
+    ST --> C4
+    AS --> C1
+    AS --> C2
+    AS --> C3
+    AS --> C4
+```
+
 ---
 
 ## 5. Pipeline de données — Kedro
@@ -201,6 +282,50 @@ ingest_from_bluesky + nlp_transform + vectorisation
 ```
 
 `model_training` est exclu du `__default__` — c'est une étape ponctuelle d'entraînement supervisé sur données Kaggle.
+
+### Diagramme de flux — Pipelines Kedro
+
+```mermaid
+flowchart LR
+    BS(["🌐 Bluesky API"])
+    M1[("MongoDB\nposts")]
+    M2[("MongoDB\ncleaned_posts")]
+    M3[("MongoDB\nclassified_posts")]
+    PKL[("data/06_models/\n*.pkl")]
+
+    subgraph P1["ingest_from_bluesky"]
+        N1["fetch_from_keywords"]
+        N2["save_posts_to_db"]
+        N1 --> N2
+    end
+
+    subgraph P2["nlp_transform"]
+        N3["get_posts_to_treat"]
+        N4["clean_text"]
+        N5["normalize_text"]
+        N6["save_to_db"]
+        N3 --> N4 --> N5 --> N6
+    end
+
+    subgraph P3["vectorisation"]
+        N7["get_cleaned_posts"]
+        N8["vectorize_texts\nTF-IDF 5000 features"]
+        N9["cluster_posts\nKMeans k=2"]
+        N10["save_model_artifacts"]
+        N11["save_predictions"]
+        N7 --> N8 --> N9
+        N9 --> N10
+        N9 --> N11
+    end
+
+    BS --> N1
+    N2 --> M1
+    M1 --> N3
+    N6 --> M2
+    M2 --> N7
+    N10 --> PKL
+    N11 --> M3
+```
 
 ### 5.1 `ingest_from_bluesky`
 
@@ -493,6 +618,46 @@ Endpoint Prometheus exposé automatiquement par `prometheus-fastapi-instrumentat
 ### Singleton KMeansService
 
 `shared/kmeans_service.py` implémente un singleton (`_instance` global) chargé à la première requête. Charge `tfidf_vectorizer.pkl` et `kmeans_model.pkl` depuis `data/06_models/`. Une `FileNotFoundError` explicite est levée si les artefacts sont absents, avec instruction de lancer la pipeline `vectorisation`.
+
+### Diagramme de séquence — POST /ask
+
+```mermaid
+sequenceDiagram
+    actor User as Utilisateur
+    participant ST as Streamlit :8501
+    participant API as FastAPI :8080
+    participant KM as KMeansService
+    participant OL as Ollama :11434
+    participant PR as Prometheus
+
+    User->>ST: Saisit une affirmation
+    ST->>API: POST /ask {"question": "..."}
+
+    activate API
+    API->>KM: classify(question)
+    activate KM
+    Note over KM: lowercase · URLs · mentions · hashtags<br/>emojis · ponctuation · NFKD · ASCII
+    KM->>KM: TfidfVectorizer.transform(text)
+    alt vec.nnz == 0 — hors vocabulaire
+        KM-->>API: verdict="uncertain", probability=0.5
+    else corpus connu
+        KM->>KM: KMeans.predict(vec)<br/>score = d0 / (d0 + d1 + ε)
+        KM-->>API: {verdict, probability, cluster}
+    end
+    deactivate KM
+
+    API->>OL: POST /api/chat {model: qwen2:1.5b, stream: false}
+    activate OL
+    Note over OL: Analyse linguistique uniquement<br/>2-3 phrases · best-effort · timeout 300 s
+    OL-->>API: {explanation}
+    deactivate OL
+
+    API->>PR: VERDICT_COUNTER.labels(verdict).inc()
+    API-->>ST: {verdict, probability, based_on, cluster, explanation}
+    deactivate API
+
+    ST-->>User: Badge coloré + barre de confiance + explication
+```
 
 ---
 
@@ -815,6 +980,62 @@ Fichier `.env` monté dans les conteneurs `api` et `streamlit` via `env_file: .e
 Transversal :
   Kedro EnergyHook → CodeCarbon (avant/après chaque nœud)
                    → MongoDB · energy_logs
+```
+
+### Diagramme de séquence — Flux de bout en bout
+
+```mermaid
+sequenceDiagram
+    participant AF as Airflow Scheduler
+    participant KD as Kedro + EnergyHook
+    participant BS as Bluesky API
+    participant MG as MongoDB
+    participant API as FastAPI :8080
+    participant OL as Ollama
+    participant ST as Streamlit
+    actor User as Utilisateur
+
+    rect rgb(20, 30, 70)
+        Note over AF,MG: Pipeline ingest_from_bluesky
+        AF->>KD: kedro run --pipeline=ingest_from_bluesky
+        KD->>BS: search_posts(keyword, limit=25) × ~20 mots-clés
+        BS-->>KD: posts[]
+        KD->>MG: insert_many → posts
+        KD->>MG: save_energy_log → energy_logs
+    end
+
+    rect rgb(20, 50, 55)
+        Note over AF,MG: Pipeline nlp_transform
+        AF->>KD: kedro run --pipeline=nlp_transform
+        KD->>MG: distinct unique_id → posts non traités
+        MG-->>KD: raw_posts[]
+        KD->>KD: clean_text() + normalize_text()
+        KD->>MG: upsert → cleaned_posts
+        KD->>MG: save_energy_log → energy_logs
+    end
+
+    rect rgb(20, 60, 35)
+        Note over AF,MG: Pipeline vectorisation
+        AF->>KD: kedro run --pipeline=vectorisation
+        KD->>MG: posts non encore classifiés
+        MG-->>KD: cleaned_posts[]
+        KD->>KD: TfidfVectorizer.fit_transform (5 000 features)
+        KD->>KD: KMeans.fit(k=2) + predict → labels + probs
+        KD->>MG: bulk_write → classified_posts
+        KD->>KD: dump tfidf_vectorizer.pkl + kmeans_model.pkl
+        KD->>MG: save_energy_log → energy_logs
+    end
+
+    rect rgb(60, 20, 25)
+        Note over User,ST: Fact-check temps réel
+        User->>ST: Saisit une affirmation (onglet Fact-Check)
+        ST->>API: POST /ask {"question": "..."}
+        API->>API: KMeansService.classify() → verdict + probability
+        API->>OL: POST /api/chat (qwen2:1.5b)
+        OL-->>API: explication linguistique
+        API-->>ST: {verdict, probability, based_on, cluster, explanation}
+        ST-->>User: Badge + barre de confiance + explication
+    end
 ```
 
 ---

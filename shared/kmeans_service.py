@@ -4,94 +4,49 @@ Loaded lazily on first call to avoid slow startup.
 """
 
 import logging
+import math
 import pickle
-import re
-import string
-import unicodedata
 from pathlib import Path
+
+from shared.embedding_service import encode
 
 logger = logging.getLogger(__name__)
 
 _instance = None
 
-VECTORIZER_PATH = "data/06_models/tfidf_vectorizer.pkl"
 KMEANS_PATH = "data/06_models/kmeans_model.pkl"
 
-class _vals:
-    def __init__(self):
-        self.true = 0.8
-        self.very_likely_true = 0.6
-        self.uncertain = 0.4
-        self.very_likely_false = 0.2
-        self.false = 0.0
 
 def _score_to_verdict(score: float) -> str:
-    if score >= _vals().true:
-        return "true"
-    if score >= _vals().very_likely_true:
-        return "very likely true"
-    if score >= _vals().uncertain:
-        return "uncertain"
-    if score >= _vals().very_likely_false:
-        return "very likely false"
-    return "false"
+    return f"{int(round(score * 100))}% real"
 
 
 class KMeansService:
-    def __init__(
-        self, vectorizer_path: str = VECTORIZER_PATH, kmeans_path: str = KMEANS_PATH
-    ):
-        if not Path(vectorizer_path).exists():
-            raise FileNotFoundError(
-                f"TF-IDF vectorizer not found at {vectorizer_path}. "
-                "Run: kedro run --pipeline vectorisation"
-            )
+    def __init__(self, kmeans_path: str = KMEANS_PATH):
         if not Path(kmeans_path).exists():
             raise FileNotFoundError(
                 f"KMeans model not found at {kmeans_path}. "
                 "Run: kedro run --pipeline vectorisation"
             )
-        with open(vectorizer_path, "rb") as f:
-            self._vectorizer = pickle.load(f)
         with open(kmeans_path, "rb") as f:
             self._km = pickle.load(f)
-        logger.info(f"KMeansService loaded from {vectorizer_path} + {kmeans_path}")
-
-    def _preprocess(self, text: str) -> str:
-        text = str(text).lower()
-        text = re.sub(r"http\S+|www\S+", "", text)
-        text = re.sub(r"@\w+", "", text)
-        text = re.sub(r"#\w+", "", text)
-        text = re.sub(
-            "[\U0001f600-\U0001f64f\U0001f300-\U0001f5ff"
-            "\U0001f680-\U0001f6ff\U0001f1e0-\U0001f1ff]+",
-            "",
-            text,
-            flags=re.UNICODE,
-        )
-        text = text.translate(str.maketrans("", "", string.punctuation))
-        text = unicodedata.normalize("NFKD", text)
-        text = text.encode("ascii", "ignore").decode("utf-8")
-        return re.sub(r"\s+", " ", text).strip()
+        logger.info(f"KMeansService loaded from {kmeans_path}")
 
     def classify(self, text: str) -> dict:
-        cleaned = self._preprocess(text)
-        vec = self._vectorizer.transform([cleaned])
-
-        if vec.nnz == 0:
-            # No vocabulary overlap with training data — distances are constant
-            return {
-                "verdict": "uncertain",
-                "probability": 0.5,
-                "based_on": "kmeans",
-                "cluster": -1,
-            }
+        vec = encode([text])  # shape (1, embedding_dim)
 
         label = int(self._km.predict(vec)[0])
-
         distances = self._km.transform(vec)[0]
         d0, d1 = distances[0], distances[1] if len(distances) > 1 else 0.0
-        score = float(d0 / (d0 + d1 + 1e-8))
+
+        fake_cluster = getattr(self._km, "fake_cluster_", 0)
+
+        closer = d0 if label == fake_cluster else d1
+        farther = d1 if label == fake_cluster else d0
+        relative_margin = (farther - closer) / (closer + 1e-8)
+        confidence = 1.0 / (1.0 + math.exp(-relative_margin * 20.0))
+
+        score = (1.0 - confidence) if label == fake_cluster else confidence
 
         return {
             "verdict": _score_to_verdict(score),
