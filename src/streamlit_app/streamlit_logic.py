@@ -22,6 +22,17 @@ load_dotenv()
 mongo = mongo_client()
 
 
+def analyze_message_emotion(text: str) -> list[dict]:
+    url = StreamlitConfig().api_url + "emotion"
+    try:
+        response = requests.post(url, json={"text": text}, timeout=30)
+        response.raise_for_status()
+        return response.json().get("emotions", [])
+    except Exception as e:
+        logger.error(f"Emotion API error: {e}")
+        return []
+
+
 def send_message_api(message: str) -> dict:
     url = StreamlitConfig().api_url + "ask"
     try:

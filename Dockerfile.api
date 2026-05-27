@@ -5,7 +5,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Créer un venv isolé
-RUN uv venv /opt/venv \
+RUN uv venv /opt/venv && \
     uv pip install --no-cache \
     --python /opt/venv/bin/python \
     "fastapi" \

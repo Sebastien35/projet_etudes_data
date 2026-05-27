@@ -4,6 +4,7 @@ import fastapi
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
+from shared.emotion_inference_service import get_emotion_inference_service
 from shared.kmeans_service import get_kmeans_service
 from shared.metrics import VERDICT_COUNTER
 from shared.ollama_service import OllamaService
@@ -20,6 +21,10 @@ ollama_service = OllamaService()
 
 class QuestionRequest(BaseModel):
     question: str
+
+
+class EmotionRequest(BaseModel):
+    text: str
 
 
 class ProbabilityScoreModel:
@@ -63,6 +68,16 @@ async def ask(request: QuestionRequest):
 
     VERDICT_COUNTER.labels(verdict=result["label"]).inc()
     return result
+
+
+@app.post("/emotion")
+async def analyze_emotion(request: EmotionRequest):
+    try:
+        scores = get_emotion_inference_service().classify(request.text)
+        return {"emotions": scores}
+    except Exception as e:
+        logger.warning(f"Emotion analysis failed: {e}")
+        raise fastapi.HTTPException(status_code=500, detail="Emotion analysis unavailable")
 
 
 @app.get("/health")
