@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 import fastapi
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -13,10 +14,22 @@ from shared.reliability_service import get_reliability_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = fastapi.FastAPI()
-Instrumentator().instrument(app).expose(app)
-
 ollama_service = OllamaService()
+
+
+@asynccontextmanager
+async def lifespan(app: fastapi.FastAPI):
+    get_emotion_inference_service()
+    try:
+        await ollama_service.explain(claim="warmup", verdict="true", probability=0.8)
+        logger.info("Ollama pre-warm complete.")
+    except Exception as e:
+        logger.warning(f"Ollama pre-warm failed (first /ask will be slow): {e}")
+    yield
+
+
+app = fastapi.FastAPI(lifespan=lifespan)
+Instrumentator().instrument(app).expose(app)
 
 
 class QuestionRequest(BaseModel):
@@ -29,8 +42,8 @@ class EmotionRequest(BaseModel):
 
 class ProbabilityScoreModel:
     """Modèle de seuils pour les scores de probabilité (Évite les magic values)."""
-    likely: float = 0.60    # Seuil pour la couleur de succès (Anciennement 0.6)
-    probable: float = 0.40  # Seuil pour la couleur d'avertissement (Anciennement 0.4)
+    likely: float = 0.60
+    probable: float = 0.40
     possible: float = 0.20
 
 @app.post("/ask")

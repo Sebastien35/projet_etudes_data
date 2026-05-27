@@ -3,15 +3,15 @@ import concurrent.futures
 import altair as alt
 import pandas as pd
 import streamlit as st
-from streamlit_color_chart import ColorChart
+from streamlit_color_chart import ColorChart, prob_score_model
 from streamlit_logic import (
     analyze_message_emotion,
     avg_emotion_score,
     emotion_by_category,
     emotion_distribution,
     energy_by_node,
-    energy_by_pipeline,
     energy_timeline,
+    energy_by_pipeline,
     get_emotion_posts,
     get_energy_df,
     get_posts,
@@ -527,7 +527,7 @@ def render_emotion_chart(emotions: list[dict]):
         f'border-radius:99px;padding:2px 10px;font-size:0.71rem;font-weight:600;">'
         f'{e["emotion"].capitalize()} {round(e["score"] * 100):.0f}%</span>'
         for e in emotions[:4]
-        if e["score"] > 0.05
+        if e["score"] > prob_score_model.probable
     )
     if badges:
         st.markdown(

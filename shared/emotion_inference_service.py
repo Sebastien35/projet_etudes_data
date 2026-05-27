@@ -1,5 +1,7 @@
 import logging
 
+from transformers import pipeline as hf_pipeline
+
 logger = logging.getLogger(__name__)
 
 _instance = None
@@ -8,7 +10,7 @@ MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
 
 class EmotionInferenceService:
     def __init__(self):
-        from transformers import pipeline as hf_pipeline
+
 
         logger.info(f"[emotion-rt] Loading model {MODEL_NAME} …")
         self._classifier = hf_pipeline(

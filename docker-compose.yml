@@ -99,7 +99,7 @@ services:
     volumes:
       - ollama-data:/root/.ollama
     # No host port binding — only reachable inside Docker by the api container.
-    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list 2>/dev/null; do sleep 2; done; ollama pull gemma2:2b; wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list 2>/dev/null; do sleep 2; done; ollama pull qwen2:1.5b; wait"]
     healthcheck:
       test: ["CMD-SHELL", "ollama list 2>/dev/null | grep -q qwen2"]
       interval: 15s
@@ -124,6 +124,8 @@ services:
     volumes:
       # KMeans + TF-IDF artifacts written by the vectorisation pipeline
       - ./data:/app/data
+      # HuggingFace model cache — persists across image rebuilds so models aren't re-downloaded
+      - hf-cache:/root/.cache/huggingface
     depends_on:
       ollama:
         condition: service_healthy
@@ -132,7 +134,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 60s
 
   # ── Streamlit ─────────────────────────────────────────────────────────────
   streamlit:
@@ -207,3 +209,4 @@ volumes:
   airflow-logs:
   airflow-plugins:
   ollama-data:
+  hf-cache:
