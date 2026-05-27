@@ -141,6 +141,8 @@ disable = [
     "wrong-import-order",
     "line-too-long",
     "unused-argument",
+    "invalid-name",
+    "logging-not-lazy",
 ]
 
 [tool.pylint.design]

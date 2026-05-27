@@ -10,8 +10,8 @@ from streamlit_logic import (
     emotion_by_category,
     emotion_distribution,
     energy_by_node,
-    energy_timeline,
     energy_by_pipeline,
+    energy_timeline,
     get_emotion_posts,
     get_energy_df,
     get_posts,
@@ -503,13 +503,17 @@ def render_emotion_chart(emotions: list[dict]):
 
     donut = (
         alt.Chart(df)
-        .mark_arc(innerRadius=42, outerRadius=82, stroke="rgba(0,0,0,0.12)", strokeWidth=1)
+        .mark_arc(
+            innerRadius=42, outerRadius=82, stroke="rgba(0,0,0,0.12)", strokeWidth=1
+        )
         .encode(
             theta=alt.Theta("score:Q"),
             color=alt.Color(
                 "emotion:N",
                 scale=alt.Scale(domain=domain, range=emo_range),
-                legend=alt.Legend(orient="right", title=None, labelFontSize=11, symbolSize=90),
+                legend=alt.Legend(
+                    orient="right", title=None, labelFontSize=11, symbolSize=90
+                ),
             ),
             tooltip=[
                 alt.Tooltip("emotion:N", title="Emotion"),
@@ -522,10 +526,10 @@ def render_emotion_chart(emotions: list[dict]):
 
     badges = "".join(
         f'<span style="background:{EMOTION_COLORS.get(e["emotion"], "#555")}22;'
-        f'color:{EMOTION_COLORS.get(e["emotion"], "#aaa")};'
-        f'border:1px solid {EMOTION_COLORS.get(e["emotion"], "#555")}55;'
+        f"color:{EMOTION_COLORS.get(e['emotion'], '#aaa')};"
+        f"border:1px solid {EMOTION_COLORS.get(e['emotion'], '#555')}55;"
         f'border-radius:99px;padding:2px 10px;font-size:0.71rem;font-weight:600;">'
-        f'{e["emotion"].capitalize()} {round(e["score"] * 100):.0f}%</span>'
+        f"{e['emotion'].capitalize()} {round(e['score'] * 100):.0f}%</span>"
         for e in emotions[:4]
         if e["score"] > prob_score_model.probable
     )
@@ -674,7 +678,12 @@ with nav_tab1:
                 st.html(html)
                 render_emotion_chart(emotions)
                 st.session_state.messages.append(
-                    {"role": "assistant", "content": html, "is_html": True, "emotions": emotions}
+                    {
+                        "role": "assistant",
+                        "content": html,
+                        "is_html": True,
+                        "emotions": emotions,
+                    }
                 )
 
         # Bottom padding so the last message isn't hidden behind the input bar
@@ -1184,7 +1193,9 @@ with nav_tab3:
                 **{
                     "Energy (Wh)": lambda d: d["Energy (Wh)"].map(lambda x: f"{x:.4f}"),
                     "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map(lambda x: f"{x:.3f}"),
-                    "Duration (s)": lambda d: d["Duration (s)"].map(lambda x: f"{x:.2f}"),
+                    "Duration (s)": lambda d: d["Duration (s)"].map(
+                        lambda x: f"{x:.2f}"
+                    ),
                     "Time": lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
                 }
             )
