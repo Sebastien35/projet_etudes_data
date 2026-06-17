@@ -1,0 +1,11 @@
+train_finetuned:
+  model_name: "xlm-roberta-base"
+  max_length: 128
+  batch_size: 16
+  num_epochs: 3
+  learning_rate: 2.0e-5
+  # Unfreeze only last 2 encoder layers + classifier to avoid overfitting on small corpus
+  unfreeze_layers: ["roberta.encoder.layer.11", "roberta.encoder.layer.10", "classifier"]
+  model_path: "data/06_models/xlm_roberta_finetuned"
+  min_reliable: 30
+  min_misinfo: 30

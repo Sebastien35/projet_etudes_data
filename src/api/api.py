@@ -6,6 +6,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
 from shared.emotion_inference_service import get_emotion_inference_service
+from shared.finetuned_service import get_finetuned_service
 from shared.kmeans_service import get_kmeans_service
 from shared.metrics import VERDICT_COUNTER
 from shared.ollama_service import OllamaService
@@ -42,27 +43,38 @@ class EmotionRequest(BaseModel):
 
 class ProbabilityScoreModel:
     """Modèle de seuils pour les scores de probabilité (Évite les magic values)."""
+
     likely: float = 0.60
     probable: float = 0.40
     possible: float = 0.20
 
+
 @app.post("/ask")
 async def ask(request: QuestionRequest):
-    # 1. Reliability classifier — primary scorer (supervised, trained on trusted outlets)
+    # Classifier priority: fine-tuned xlm-roberta → reliability LogReg → KMeans fallback
     try:
-        result = get_reliability_service().classify(request.question)
+        result = get_finetuned_service().classify(request.question)
     except FileNotFoundError:
         logger.warning(
-            "Reliability model not found — falling back to KMeans. "
-            "Run: kedro run --pipeline train_reliability"
+            "Fine-tuned model not found — falling back to reliability classifier."
         )
-        result = get_kmeans_service().classify(request.question)
+        try:
+            result = get_reliability_service().classify(request.question)
+        except FileNotFoundError:
+            logger.warning("Reliability model not found — falling back to KMeans.")
+            result = get_kmeans_service().classify(request.question)
 
     prob = result["probability"]
-    result["label"] =   "true" if prob >= ProbabilityScoreModel.likely else (
-        "very likely true" if prob >= ProbabilityScoreModel.probable else (
-            "uncertain" if prob >= ProbabilityScoreModel.possible else (
-                "very likely false" if prob > 0 else "false"
+    result["label"] = (
+        "true"
+        if prob >= ProbabilityScoreModel.likely
+        else (
+            "very likely true"
+            if prob >= ProbabilityScoreModel.probable
+            else (
+                "uncertain"
+                if prob >= ProbabilityScoreModel.possible
+                else ("very likely false" if prob > 0 else "false")
             )
         )
     )
@@ -90,7 +102,9 @@ async def analyze_emotion(request: EmotionRequest):
         return {"emotions": scores}
     except Exception as e:
         logger.warning(f"Emotion analysis failed: {e}")
-        raise fastapi.HTTPException(status_code=500, detail="Emotion analysis unavailable")
+        raise fastapi.HTTPException(
+            status_code=500, detail="Emotion analysis unavailable"
+        )
 
 
 @app.get("/health")

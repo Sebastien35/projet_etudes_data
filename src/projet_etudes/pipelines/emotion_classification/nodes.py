@@ -14,9 +14,13 @@ mongo = mongo_client()
 
 def get_posts_for_emotion() -> tuple[list[str], list[dict]]:
     """Fetch cleaned posts not yet emotion-classified (incremental)."""
-    all_posts = list(
+    classified_ids = list(mongo.use_collection("emotion_posts").distinct("unique_id"))
+    posts = list(
         mongo.use_collection("cleaned_posts").find(
-            {"normalized_text": {"$exists": True, "$ne": ""}},
+            {
+                "normalized_text": {"$exists": True, "$ne": ""},
+                "unique_id": {"$nin": classified_ids},
+            },
             {
                 "_id": 0,
                 "unique_id": 1,
@@ -26,8 +30,6 @@ def get_posts_for_emotion() -> tuple[list[str], list[dict]]:
             },
         )
     )
-    classified_ids = set(mongo.use_collection("emotion_posts").distinct("unique_id"))
-    posts = [p for p in all_posts if p["unique_id"] not in classified_ids]
     texts = [p["normalized_text"] for p in posts]
     logger.info(
         f"[emotion] {len(posts)} posts to classify ({len(classified_ids)} already done)"

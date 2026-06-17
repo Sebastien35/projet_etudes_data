@@ -6,9 +6,30 @@ from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
 from shared.energy_service import save_energy_log
+from shared.mongo import mongo_client
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+class MongoIndexHook:
+    """Ensures unique_id indexes exist on all collections before any pipeline runs."""
+
+    _COLLECTIONS = ["posts", "cleaned_posts", "classified_posts", "emotion_posts"]
+
+    @hook_impl
+    def before_pipeline_run(self, run_params, pipeline, catalog) -> None:
+        try:
+            mongo = mongo_client()
+            for col_name in self._COLLECTIONS:
+                mongo.use_collection(col_name).create_index(
+                    "unique_id", unique=False, background=True
+                )
+            logger.info(
+                "[MongoIndexHook] unique_id indexes ensured on all collections."
+            )
+        except Exception as e:
+            logger.warning(f"[MongoIndexHook] Could not create indexes: {e}")
 
 
 class EnergyHook:
