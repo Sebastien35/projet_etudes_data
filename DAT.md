@@ -1,6 +1,7 @@
 # Document d'Architecture Technique (DAT) — Projet d'études M1 Data
 
 **Projet :** M1 Data Science — Plateforme de détection automatisée d'infox (*fake news*) sur le réseau Bluesky
+**Version :** 2026-05-28 — branche `develop`
 
 ---
 
@@ -14,6 +15,7 @@
   - [4. Infrastructure \& Conteneurisation (Docker)](#4-infrastructure--conteneurisation-docker)
     - [Environnement de Production](#environnement-de-production)
     - [Ordonnancement du démarrage (`depends_on`)](#ordonnancement-du-démarrage-depends_on)
+    - [Réseau interne](#réseau-interne)
     - [Mécanismes de Persistance (Volumes)](#mécanismes-de-persistance-volumes)
     - [Gestion de la Santé des Services (Healthchecks)](#gestion-de-la-santé-des-services-healthchecks)
   - [5. Pipelines de Données (Framework Kedro)](#5-pipelines-de-données-framework-kedro)
@@ -22,8 +24,8 @@
     - [5.2 Pipeline `nlp_transform`](#52-pipeline-nlp_transform)
       - [Logique de nettoyage incrémental](#logique-de-nettoyage-incrémental)
     - [5.3 Pipeline `vectorisation`](#53-pipeline-vectorisation)
-      - [Mécanisme mathématique et clustering](#mécanisme-mathématique-et-clustering)
-    - [5.4 Pipeline `model_training` (Exécution Asynchrone / Ponctuelle)](#54-pipeline-model_training-exécution-asynchrone--ponctuelle)
+      - [Mécanisme d'encodage et clustering](#mécanisme-dencodage-et-clustering)
+    - [5.4 Pipeline `model_training` (Expérimental — Non enregistré)](#54-pipeline-model_training-expérimental--non-enregistré)
       - [Architecture logique du réseau de neurones](#architecture-logique-du-réseau-de-neurones)
     - [5.5 Pipeline `emotion_classification`](#55-pipeline-emotion_classification)
     - [5.6 Pipeline `train_reliability` (Exécution Asynchrone / Ponctuelle)](#56-pipeline-train_reliability-exécution-asynchrone--ponctuelle)
@@ -31,8 +33,10 @@
     - [Schéma logique des collections](#schéma-logique-des-collections)
   - [7. Green IT \& Monitoring Énergétique (EnergyHook)](#7-green-it--monitoring-énergétique-energyhook)
   - [8. Couche Applicative \& API de Classification (FastAPI)](#8-couche-applicative--api-de-classification-fastapi)
+    - [Mécanisme de démarrage (Lifespan)](#mécanisme-de-démarrage-lifespan)
     - [Spécification des Points d'Accès (Endpoints)](#spécification-des-points-daccès-endpoints)
       - [`POST /ask`](#post-ask)
+      - [`POST /emotion`](#post-emotion)
       - [`GET /health`](#get-health)
       - [`GET /metrics`](#get-metrics)
   - [9. Services Partagés (`shared/`)](#9-services-partagés-shared)
@@ -45,22 +49,31 @@
   - [11. Reverse Proxy \& Routage (Nginx)](#11-reverse-proxy--routage-nginx)
   - [12. Observabilité \& Monitoring (Prometheus \& Grafana)](#12-observabilité--monitoring-prometheus--grafana)
   - [13. Orchestration des Workflows (Apache Airflow)](#13-orchestration-des-workflows-apache-airflow)
+    - [Schedules et orchestration des DAGs](#schedules-et-orchestration-des-dags)
     - [Processus d'initialisation de l'orchestrateur (Séquence de boot)](#processus-dinitialisation-de-lorchestrateur-séquence-de-boot)
   - [14. Intégration et Déploiement Continus (CI/CD)](#14-intégration-et-déploiement-continus-cicd)
   - [15. Configuration \& Variables d'Environnement](#15-configuration--variables-denvironnement)
   - [16. Cycle de Vie de la Donnée \& Flux de Bout en Bout](#16-cycle-de-vie-de-la-donnée--flux-de-bout-en-bout)
   - [17. Guide de Démarrage Rapide](#17-guide-de-démarrage-rapide)
     - [Prérequis Système](#prérequis-système)
-    - [Déploiement en Environnement de Production (AWS EC2)](#déploiement-en-environnement-de-production-aws-ec2)
+    - [Déploiement en Environnement de Production (Hôte Linux)](#déploiement-en-environnement-de-production-hôte-linux)
     - [Déploiement en Environnement de Développement Local](#déploiement-en-environnement-de-développement-local)
     - [Exécution Manuelle et Séquentielle des Pipelines Data](#exécution-manuelle-et-séquentielle-des-pipelines-data)
     - [Extinction de l'Infrastructure](#extinction-de-linfrastructure)
+  - [18. Limitations Connues \& Dette Technique](#18-limitations-connues--dette-technique)
 
 ---
 
 ## 1. Vue d'ensemble & Architecture Générale
 
-**FakeShield** est une plateforme industrialisée de détection et d'analyse des fausses informations circulant sur le réseau social décentralisé **Bluesky**. Le système s'articule autour de quatre pipelines de données managés, d'une API de classification en temps réel et d'un tableau de bord décisionnel.
+**FakeShield** est une plateforme d'aide à l'analyse critique de l'information circulant sur le réseau social décentralisé **Bluesky**. Elle fournit à l'utilisateur deux signaux complémentaires sur tout texte soumis :
+
+* un **score de crédibilité stylistique** (0–100 %) : mesure la proximité du texte avec le style rédactionnel de sources d'information vérifiées, entraîné sur un corpus labellisé par origine de source ;
+* une **décomposition émotionnelle** (7 émotions d'Ekman) : quantifie la charge affective du contenu, signal reconnu dans la littérature sur la désinformation — les contenus manipulateurs étant statistiquement plus chargés en colère, peur ou dégoût.
+
+> **Périmètre du système :** FakeShield ne prétend pas établir la vérité factuelle d'une affirmation. Il fournit des indicateurs d'aide à la lecture critique ; l'interprétation finale reste à la charge de l'utilisateur.
+
+Le système s'articule autour de cinq pipelines de données managés, d'une API de classification en temps réel et d'un tableau de bord décisionnel.
 
 L'écosystème respecte un paradigme architectural linéaire **ETL → ML → API → UI** :
 
@@ -74,10 +87,10 @@ MongoDB [Collection: posts]
 │  Kedro nlp_transform
 ▼
 MongoDB [Collection: cleaned_posts]
-│  Kedro vectorisation + emotion_classification (en parallèle dans __default__)
+│  Kedro vectorisation puis emotion_classification (séquentiels dans __default__)
 ▼
 MongoDB [Collection: classified_posts]   MongoDB [Collection: emotion_posts]
-Artefacts (ReliabilityClassifier + TF-IDF/KMeans) ──► FastAPI (/ask, /emotion) ◄── Streamlit UI
+Artefacts (ReliabilityClassifier + SentenceTransformer/KMeans) ──► FastAPI (/ask, /emotion) ◄── Streamlit UI
 │
 Ollama LLM  (Interprétabilité NLP)
 ```
@@ -90,16 +103,20 @@ Ollama LLM  (Interprétabilité NLP)
 projet_etudes_data/
 ├── conf/
 │   ├── base/
-│   │   ├── catalog.yml                  # Catalogue des Datasets Kedro
-│   │   ├── parameters.yml               # Paramètres globaux
+│   │   ├── catalog.yml                        # Catalogue des Datasets Kedro
+│   │   ├── parameters.yml                     # Paramètres globaux
 │   │   ├── parameters_ingest_from_bluesky.yml
 │   │   ├── parameters_nlp_transform.yml
-│   │   ├── parameters_vectorisation.yml  # Hyperparamètres (clusters, features, artefacts)
-│   │   └── parameters_model_training.yml # Configuration du réseau de neurones LSTM
-│   ├── airflow/                          # Configuration cible pour l'environnement Airflow
-│   ├── nginx.conf                        # Configuration du Reverse Proxy
-│   ├── prometheus.yml                    # Configuration du serveur de métriques
-│   └── logging.yml                       # Stratégie de journalisation
+│   │   ├── parameters_vectorisation.yml        # Hyperparamètres (clusters, features, artefacts)
+│   │   ├── parameters_model_training.yml       # Configuration du réseau de neurones LSTM
+│   │   └── parameters_emotion_classification.yml # Modèle DistilRoBERTa, batch_size, max_length
+│   ├── airflow/                               # Configuration cible pour l'environnement Airflow
+│   ├── grafana/
+│   │   ├── provisioning/                      # Datasources & dashboards auto-provisionnés
+│   │   └── dashboards/                        # Fichiers JSON des tableaux de bord Grafana
+│   ├── nginx.conf                             # Configuration du Reverse Proxy
+│   ├── prometheus.yml                         # Configuration du serveur de métriques
+│   └── logging.yml                            # Stratégie de journalisation
 ├── data/
 │   ├── 01_raw/                           # Sources Kaggle (True.csv, Fake.csv - non versionnés)
 │   └── 06_models/                        # Sérialisation des modèles (Pickle & Keras)
@@ -131,10 +148,13 @@ projet_etudes_data/
 │       ├── streamlit_color_chart.py      # Thémisation graphique
 │       ├── streamlit_config.py           # Configuration de l'IHM
 │       └── config.toml                   # Paramètres natifs Streamlit
+├── Dockerfile                            # Image Kedro — exécution des pipelines data
 ├── Dockerfile.api
 ├── Dockerfile.airflow
 ├── Dockerfile.streamlit
+├── Dockerfile.docs                       # MkDocs Material — sert le DAT en HTML via nginx
 ├── docker-compose.yml
+├── mkdocs.yml                            # Configuration de la documentation MkDocs
 ├── pyproject.toml                        # Gestion des dépendances du projet
 └── Makefile                              # Raccourcis d'automatisation des tâches
 
@@ -151,7 +171,7 @@ projet_etudes_data/
 | **Framework Data** | Kedro | ~1.0.0 | Structuration et modularité des pipelines data |
 | **Ingestion Réseau** | `atproto` | 0.0.63 | Interaction avec le protocole décentralisé Bluesky |
 | **Persistance** | MongoDB | *latest* (PyMongo) | Base de données NoSQL orientée documents |
-| **Machine Learning** | scikit-learn | ~1.5.1 | Extraction de features (TF-IDF) et clustering (KMeans) |
+| **Machine Learning** | scikit-learn | ~1.5.1 | Clustering non supervisé (KMeans) et classification supervisée (LogisticRegression) |
 | **Deep Learning** | TensorFlow / Keras | *latest* | Entraînement du modèle de référence LSTM |
 | **NLP Transformers** | HuggingFace Transformers | *latest* | Classification d'émotions (DistilRoBERTa `j-hartmann/emotion-english-distilroberta-base`) |
 | **Embeddings sémantiques** | Sentence-Transformers | ≥3.0.0 | Encodage dense multilingue (`paraphrase-multilingual-MiniLM-L12-v2`) pour le classifieur de fiabilité |
@@ -163,14 +183,16 @@ projet_etudes_data/
 | **LLM Anthropic** | Claude (claude-agent-sdk) | claude-opus-4-6 | Alternative d'explication LLM via `claude-agent-sdk` (`ClaudeService`) |
 | **Restitution / UI** | Streamlit | *latest* | Dashboard de restitution de données en temps réel |
 | **Dataviz** | Altair | *latest* | Génération de graphiques déclaratifs interactifs |
+| **Documentation** | MkDocs Material | 9 | Site de documentation statique servi en conteneur |
 | **Green IT** | CodeCarbon | *latest* | Évaluation des émissions de $CO_2$ et de la puissance consommée |
 | **Collecte Métriques** | Prometheus | *latest* | Base de données temporelle pour le monitoring technique |
+| **Visualisation Métriques** | Grafana | *latest* | Tableaux de bord de supervision technique |
 | **Orchestration Workflow** | Apache Airflow | 2.8.4 | Ordonnancement et supervision des tâches ETL |
-| **Serveur Frontal / Proxy** | Nginx | *alpine* | Reverse proxy, gestion des certificats et routage HTTP |
+| **Serveur Frontal / Proxy** | Nginx | *alpine* | Reverse proxy et routage HTTP (HTTP uniquement, pas de TLS) |
 | **RDBMS Airflow** | MariaDB | *latest* | Base de données de gestion d'états pour Airflow |
 | **Conteneurisation** | Docker / Compose | v2 | Isolation et portabilité de la stack applicative |
-| **Qualité Code** | Black / Ruff | *latest* / ~0.12.0 | Formater, linter et garantir la conformité du code source |
-| **Sécurité DevOps** | `hadolint` / Trivy | v3.1.0 / *latest* | Audit de sécurité des conteneurs et des dépendances |
+| **Qualité Code** | Ruff | ~0.12.0 | Linter et formateur (`ruff check` + `ruff format`) |
+| **Audit Dockerfiles** | `hadolint` | v3.1.0 | Lint statique des Dockerfiles en CI |
 | **Tests** | pytest / pytest-cov | ~7.2 | Automatisation des tests et couverture de code |
 
 ---
@@ -179,13 +201,18 @@ projet_etudes_data/
 
 ### Environnement de Production
 
-L'application est déployée sur une instance cloud **AWS EC2 (Amazon Linux 2023)** managée via **Docker Compose v2**. L'intégration est entièrement automatisée : tout déploiement est instancié suite à la validation du pipeline CI/CD lors d'un événement `push` sur la branche `main`.
+L'application est actuellement déployée sur une instance cloud **AWS EC2 (Amazon Linux 2023)** managée via **Docker Compose v2**. L'intégration est entièrement automatisée : tout déploiement est instancié suite à la validation du pipeline CI/CD via une connexion SSH sur la cible.
+
+> **Portabilité infrastructure :** Le déploiement repose exclusivement sur SSH + Docker Compose, sans aucun outil d'IaC spécifique au cloud (Terraform, CloudFormation, CDK…) ni dépendance à des services AWS managés (RDS, ECS, S3…). La stack est donc **cloud-agnostique** et peut être transposée sans modification sur n'importe quel hôte Linux disposant de Docker : serveur on-premise, VPS chez un autre fournisseur (GCP, Azure, Hetzner…) ou machine locale. Seule la valeur du secret `EC2_HOST` dans le pipeline CI/CD est à mettre à jour pour pointer vers la nouvelle cible.
+
+> **Note MongoDB :** La base de données **MongoDB Atlas** (cloud managé) est une dépendance **externe** au Docker Compose. Elle n'est pas conteneurisée localement. La connexion s'effectue via l'URI `MONGO_CONNECTION_STRING` injectée dans le `.env`. Tous les services qui lisent ou écrivent en base dépendent donc d'une connectivité réseau sortante vers Atlas.
 
 L'écosystème applicatif est segmenté en micro-services isolés :
 
 | Service Docker | Source d'Image | Port Hôte | Port Conteneur | Responsabilité Métier |
 | --- | --- | --- | --- | --- |
 | `nginx` | `nginx:alpine` | 80 | 80 | Point d'entrée unique du trafic (Reverse Proxy) |
+| `docs` | `Dockerfile.docs` | — | 80 | Site de documentation statique (MkDocs → nginx interne) |
 | `airflow-webserver` | `Dockerfile.airflow` | — | 8080 | Interface web d'administration d'Airflow |
 | `airflow-scheduler` | `Dockerfile.airflow` | — | — | Planificateur et exécuteur de tâches |
 | `airflow-init` | `Dockerfile.airflow` | — | — | Initialisation de la base de données relationnelle |
@@ -201,14 +228,23 @@ L'écosystème applicatif est segmenté en micro-services isolés :
 
 ```
 nginx ─────────────┬──► streamlit
-                   └──► airflow-webserver
+                   └──► docs
 streamlit ─────────────► api (Statut de santé requis)
 api ────────────────────► ollama (Statut de santé requis)
+prometheus ─────────────► api
+                    └──► node-exporter
+grafana ────────────────► prometheus
 airflow-webserver ──────► airflow-init (Statut: success requis)
 airflow-scheduler ──────► airflow-init (Statut: success requis)
 airflow-init ───────────► database
 
 ```
+
+> Note : `airflow-webserver` n'est pas dans les `depends_on` de `nginx` (commenté dans `docker-compose.yml`). L'UI Airflow est accessible via le proxy mais nginx ne bloque pas son démarrage sur la disponibilité d'Airflow.
+
+### Réseau interne
+
+Docker Compose crée automatiquement un réseau bridge dédié (`projet_etudes_data_default`). Les services se découvrent entre eux par leur **nom de service** (`api`, `ollama`, `streamlit`, etc.). Aucun port inter-service n'est exposé sur l'hôte sauf ceux listés dans la colonne "Port Hôte" ci-dessus.
 
 ### Mécanismes de Persistance (Volumes)
 
@@ -219,7 +255,7 @@ airflow-init ───────────► database
 
 ### Gestion de la Santé des Services (Healthchecks)
 
-Le service `ollama` implémente une routine de démarrage robuste. Il instancie le démon `ollama serve` puis orchestre le téléchargement du modèle via `ollama pull qwen2:1.5b` (Volume d'environ 900 Mo). La sonde de santé vérifie périodiquement la disponibilité du modèle via la commande `ollama list | grep qwen2`, s'accordant un délai maximal de 300 secondes (20 tentatives d'intervalle).
+Le service `ollama` implémente une routine de démarrage robuste. Il instancie le démon `ollama serve` puis orchestre le téléchargement du modèle via `ollama pull qwen2:1.5b` (volume d'environ 900 Mo). La sonde de santé vérifie périodiquement la disponibilité du modèle via `ollama list | grep qwen2`, avec un `start_period` de **300 secondes** suivi de **20 tentatives** espacées de **15 secondes** — soit un délai maximal total d'environ **600 secondes** avant que le service ne soit déclaré en échec.
 
 Le service `api` dispose d'un `start_period` porté à **60 secondes** (contre 15 précédemment) afin de laisser le temps au mécanisme de lifespan FastAPI de pré-charger le modèle d'émotion DistilRoBERTa avant que les sondes de santé ne soient déclarées actives.
 
@@ -227,16 +263,13 @@ Le service `api` dispose d'un `start_period` porté à **60 secondes** (contre 1
 
 ## 5. Pipelines de Données (Framework Kedro)
 
-Le framework **Kedro 1.0.0** est utilisé comme colonne vertébrale pour structurer le code de traitement de données. Les modules sont partitionnés en quatre pipelines distincts au sein de `pipeline_registry.py`.
+Le framework **Kedro 1.0.0** est utilisé comme colonne vertébrale pour structurer le code de traitement de données. Cinq pipelines sont enregistrés dans `pipeline_registry.py` : `ingest_from_bluesky`, `nlp_transform`, `vectorisation`, `train_reliability` et `emotion_classification`.
 
 Par défaut, le pipeline `__default__` exécute le cycle ETL complet :
 
-
 $$\text{ingest\_from\_bluesky} \longrightarrow \text{nlp\_transform} \longrightarrow \text{vectorisation} \longrightarrow \text{emotion\_classification}$$
 
-Le pipeline `model_training` est isolé volontairement de la routine par défaut. Il s'agit d'une brique d'entraînement supervisé lourd s'appuyant sur des données externes historiques (Kaggle).
-
-Le pipeline `train_reliability` est également isolé : il doit être exécuté une première fois pour générer `reliability_classifier.pkl` avant que l'API puisse utiliser le classifieur supervisé.
+Le pipeline `train_reliability` est isolé de la routine `__default__` : il s'exécute en ponctuel (via `make run3`) pour générer `reliability_classifier.pkl` avant que l'API puisse utiliser le classifieur supervisé.
 
 ```mermaid
 flowchart LR
@@ -248,9 +281,13 @@ flowchart LR
     PKL[("data/06_models/\n*.pkl")]
 
     subgraph P1["Pipeline : ingest_from_bluesky"]
-        N1["fetch_from_keywords"]
+        N1a["fetch_from_reliable_accounts"]
+        N1b["fetch_from_keywords"]
+        N1c["merge_posts"]
         N2["save_posts_to_db"]
-        N1 --> N2
+        N1a --> N1c
+        N1b --> N1c
+        N1c --> N2
     end
 
     subgraph P2["Pipeline : nlp_transform"]
@@ -263,7 +300,7 @@ flowchart LR
 
     subgraph P3["Pipeline : vectorisation"]
         N7["get_cleaned_posts"]
-        N8["vectorize_texts\nTF-IDF (5k Features)"]
+        N8["encode_texts\nSentenceTransformer (embeddings)"]
         N9["cluster_posts\nKMeans (k=2)"]
         N10["save_model_artifacts"]
         N11["save_predictions"]
@@ -279,7 +316,8 @@ flowchart LR
         N12 --> N13 --> N14
     end
 
-    BS --> N1
+    BS --> N1a
+    BS --> N1b
     N2 --> M1
     M1 --> N3
     N6 --> M2
@@ -293,26 +331,30 @@ flowchart LR
 
 ### 5.1 Pipeline `ingest_from_bluesky`
 
-* **Objectif :** Collecter de manière ciblée les publications du réseau décentralisé Bluesky et assurer leur persistance brute.
+* **Objectif :** Collecter les publications du réseau décentralisé Bluesky via deux stratégies complémentaires — sources fiables et mots-clés thématiques — et assurer leur persistance brute avec un label de fiabilité attaché à chaque post.
 * **Composants (Nodes) :**
-* `fetch_from_keywords_node` : Interroge l'API distante.
-* `save_posts_to_db_node` : Insère les données récupérées en base de données.
+  * `fetch_from_reliable_accounts_node` : Collecte directement les posts de comptes vérifiés (Reuters, AFP, BBC, Le Monde, NYT…) et les étiquette `source_label = "reliable"`.
+  * `fetch_from_keywords_node` : Interroge l'API par axes thématiques et attribue `source_label = "reliable"` ou `"unverified"` selon le domaine de l'auteur.
+  * `merge_posts_node` : Fusionne les deux listes en dédupliquant sur `unique_id`.
+  * `save_posts_to_db_node` : Insère le corpus consolidé en base de données.
 
 
 
 #### Algorithme d'ingestion
 
 1. **Authentification :** Connexion via la bibliothèque `atproto.Client.login()` en exploitant les variables d'environnement `BSKY_USERNAME` et `BSKY_APP_PASSWORD`.
-2. **Stratégie d'exploration :** Requêtage structuré autour de quatre axes thématiques :
-* *Discover :* `news`, `world news`, `science`, `technology`, `research`
-* *Trending :* `breaking news`, `urgent`, `live updates`, `alert`
-* *Hot Topics :* `politics`, `election`, `climate`, `crisis`, `economy`, `AI`
-* *Misinformation :* `fact check`, `debunked`, `misinformation`, `conspiracy`, `hoax`
+2. **Voie 1 — Sources fiables :** Récupération directe des $N$ derniers posts des comptes listés dans `parameters_ingest_from_bluesky.yml` (`reliable_accounts`). Chaque post est immédiatement étiqueté `source_label = "reliable"`.
+3. **Voie 2 — Mots-clés thématiques :** Requêtage structuré autour de quatre axes :
+   * *Discover :* `news`, `world news`, `science`, `technology`, `research`
+   * *Trending :* `breaking news`, `urgent`, `live updates`, `alert`
+   * *Hot Topics :* `politics`, `election`, `climate`, `crisis`, `economy`, `AI`
+   * *Misinformation :* `fact check`, `debunked`, `misinformation`, `conspiracy`, `hoax`
 
-
-3. **Exécution :** Appel de la méthode `app.bsky.feed.search_posts(q=keyword, limit=25, lang="en")` pour chaque mot-clé.
-4. **Déduplication & Intégrité :** Génération d'un identifiant composite unique défini par le motif `{username}_{created_at}`. Le script écarte systématiquement les doublons intra-requête à l'aide d'une structure `seen_uris` et filtre les publications corrompues dépourvues de contenu textuel ou de métadonnées temporelles.
+   Chaque post est étiqueté `"reliable"` si le domaine de l'auteur figure dans `reliable_domains`, sinon `"unverified"`.
+4. **Déduplication & Intégrité :** Génération d'un identifiant composite unique `{username}_{created_at}`. Les doublons intra-requête sont éliminés et les publications sans texte ou métadonnées temporelles sont écartées.
 5. **Persistance brute :** Opération d'écriture groupée (`insert_many`) au sein de la collection `posts`.
+
+> **Note :** Le champ `source_label` stocké dans `posts` est la source de vérité pour l'entraînement du classifieur de fiabilité (`train_reliability`). Les posts `"reliable"` servent de labels positifs, les posts de catégorie `"Misinformation"` de labels négatifs.
 
 * **Commande d'activation :** `kedro run --pipeline=ingest_from_bluesky` (ou via le raccourci `make run1`).
 
@@ -365,47 +407,50 @@ Le processus applique successivement deux niveaux de traitement sur le contenu t
 
 ### 5.3 Pipeline `vectorisation`
 
-* **Objectif :** Transformer le texte nettoyé en représentations numériques, segmenter le corpus via un algorithme non supervisé, et exporter les modèles entraînés pour l'IHM et l'API.
+* **Objectif :** Encoder le texte nettoyé en vecteurs denses, segmenter le corpus via K-Means non supervisé avec orientation dynamique des clusters, et exporter le modèle KMeans servant de classifieur de **repli** à l'API.
 * **Configuration de référence (`conf/base/parameters_vectorisation.yml`) :**
 ```yaml
 vectorisation:
+  embedding_model: "paraphrase-multilingual-MiniLM-L12-v2"
   n_clusters: 2
-  max_features: 5000
-  vectorizer_path: "data/06_models/tfidf_vectorizer.pkl"
-  kmeans_path:     "data/06_models/kmeans_model.pkl"
+  kmeans_path: "data/06_models/kmeans_model.pkl"
+  reliability_classifier_path: "data/06_models/reliability_classifier.pkl"
 
 ```
 
 
 
-#### Mécanisme mathématique et clustering
+#### Mécanisme d'encodage et clustering
 
-Le pipeline extrait le texte normalisé des publications non traitées. Les chaînes de caractères subissent une transformation vectorielle de type **TF-IDF (Term Frequency-Inverse Document Frequency)** restreinte aux $5000$ descripteurs les plus pertinents, avec l'application d'un lissage logarithmique de la fréquence des termes (`sublinear_tf=True`).
+Le pipeline extrait le texte normalisé des publications non encore classifiées. Les textes sont encodés en vecteurs denses via **SentenceTransformer** (modèle `paraphrase-multilingual-MiniLM-L12-v2`, configurable via le paramètre `embedding_model`). Cette approche sémantique remplace une ancienne vectorisation TF-IDF et produit des représentations multilingues L2-normalisées.
 
-La matrice résultante $X$ est soumise à un partitionnement via l'algorithme des **K-Means** ($k=2$).
+La matrice d'embeddings $X$ est soumise à un partitionnement via l'algorithme des **K-Means** ($k=2$).
 
-> **Règle métier de labellisation :**
-> * **Cluster 1** $\longrightarrow$ Postulat Légitime (`is_real = True`)
-> * **Cluster 0** $\longrightarrow$ Anomalie / Infox potentielle (`is_real = False`)
+> **Orientation dynamique des clusters :**
+> L'identité "real" et "fake" des clusters n'est pas fixée arbitrairement. À l'issue du clustering, chaque cluster reçoit un score :
 >
+> $$\text{score}(c) = \text{reliable\_rate}(c) - \text{misinfo\_rate}(c)$$
 >
+> où `reliable_rate` est la proportion de posts `source_label = "reliable"` dans le cluster, et `misinfo_rate` la proportion de posts de catégorie `"Misinformation"`. **Le cluster au score le plus élevé est désigné "real"** (`is_real = True`), l'autre "fake" (`is_real = False`). Cette règle est indépendante de l'indice numérique du cluster (0 ou 1).
 
-Le score de confiance est déterminé à partir du calcul du ratio des distances euclidiennes par rapport aux centres de gravité (*centroïdes*) des deux clusters :
+Le score de confiance par post est calculé à partir des distances aux centroïdes :
 
-$$\text{Score} = \frac{d(\mathbf{x}, \mathbf{c}_0)}{d(\mathbf{x}, \mathbf{c}_0) + d(\mathbf{x}, \mathbf{c}_1) + \varepsilon}$$
+$$\text{Score} = \frac{d(\mathbf{x}, \mathbf{c}_{\text{fake}})}{d(\mathbf{x}, \mathbf{c}_{\text{fake}}) + d(\mathbf{x}, \mathbf{c}_{\text{real}}) + \varepsilon}$$
 
-*Où $\mathbf{x}$ représente le vecteur du post, $\mathbf{c}_0$ le centroïde du cluster "Fake", $\mathbf{c}_1$ le centroïde du cluster "Real", et $\varepsilon = 10^{-8}$ une constante de stabilité numérique.* Un score élevé indique une forte probabilité de véracité de l'information.
+*Où $\varepsilon = 10^{-8}$ est une constante de stabilité numérique. Un score élevé indique une forte probabilité de véracité.*
 
-Les artefacts entraînés sont sérialisés au format Pickle dans `data/06_models/` tandis que les résultats d'inférence font l'objet d'un import de masse transactionnel (`bulk_write` avec des opérations `UpdateOne` et `upsert=True`) dans la collection `classified_posts`.
+Le modèle KMeans est sérialisé dans `data/06_models/kmeans_model.pkl`. Les résultats d'inférence sont insérés via `bulk_write` (`UpdateOne` + `upsert=True`) dans la collection `classified_posts`.
 
-* **Commande d'activation :** `kedro run --pipeline=vectorisation` (ou via `make run3`).
+* **Commande d'activation :** `kedro run --pipeline=vectorisation` (ou via `make run3`, qui enchaîne aussi `train_reliability`).
 
 ---
 
-### 5.4 Pipeline `model_training` (Exécution Asynchrone / Ponctuelle)
+### 5.4 Pipeline `model_training` (Expérimental — Non enregistré)
 
-* **Objectif :** Entraîner à des fins comparatives un classifieur deep learning de type LSTM (*Long Short-Term Memory*) sur le jeu de données de référence Kaggle *« Fake and Real News »*.
-* **Hyperparamètres du réseau (`conf/base/parameters_model_training.yml`) :**
+> ⚠️ **Ce pipeline n'est pas enregistré dans `pipeline_registry.py`** et ne peut pas être invoqué via `kedro run --pipeline=model_training`. Il s'agit d'un artefact expérimental hors cycle de production. Les fichiers `lstm_model.keras` et `lstm_tokenizer.pkl` présents dans `data/06_models/` ont été générés manuellement et le service d'inférence associé (`shared/lstm_service.py`) n'est pas câblé à l'API. Le code correspondant est isolé dans `src/projet_etudes/pipelines/legacy/`.
+
+* **Objectif initial :** Entraîner à des fins comparatives un classifieur deep learning de type LSTM (*Long Short-Term Memory*) sur le jeu de données de référence Kaggle *« Fake and Real News »* (`data/01_raw/True.csv` et `Fake.csv`).
+* **Configuration de référence (`conf/base/parameters_model_training.yml`) :**
 ```yaml
 model_training:
   vocab_size:    5000
@@ -418,38 +463,21 @@ model_training:
 
 ```
 
-
-
 #### Architecture logique du réseau de neurones
 
-Le dataset d'entraînement fusionne les sources `True.csv` et `Fake.csv`. Le texte est tokenisé et harmonisé à une longueur fixe de $200$ jetons (complétion par *post-padding*). La topologie du réseau Keras est configurée ainsi :
+Le dataset fusionne `True.csv` et `Fake.csv`. Le texte est tokenisé et harmonisé à $200$ jetons (post-padding). Topologie Keras :
 
 ```
-Couche d'Entrée : Embedding (Vocabulaire: 5000, Dimension: 128, Séquence: 200)
-       │
+Embedding (Vocabulaire: 5000, Dimension: 128, Séquence: 200)
        ▼
-Couche Récurrente : LSTM (128 Unités, return_sequences=True)
-       │
+LSTM (128 Unités, return_sequences=True)  →  Dropout (0.5)
        ▼
-Régularisation : Dropout (Taux de désactivation: 0.5)
-       │
+LSTM (64 Unités)  →  Dropout (0.5)
        ▼
-Couche Récurrente : LSTM (64 Unités)
-       │
-       ▼
-Régularisation : Dropout (Taux de désactivation: 0.5)
-       │
-       ▼
-Couche Dense Intermédiaire : Neurones: 32 | Activation: ReLU
-       │
-       ▼
-Couche de Sortie Classifieur : Neurones: 1 | Activation: Sigmoïde
-
+Dense (32, ReLU)  →  Dense (1, Sigmoïde)
 ```
 
-L'optimisation repose sur l'algorithme Adam conjugué à une fonction de perte d'entropie croisée binaire (*binary crossentropy*). Un mécanisme d'arrêt précoce (*EarlyStopping*) surveille la métrique `val_accuracy` avec une tolérance de 3 époques afin de restituer les meilleurs poids et d'éviter le surapprentissage.
-
-* **Commande d'activation :** `kedro run --pipeline=model_training`.
+Optimiseur Adam, perte `binary_crossentropy`, `EarlyStopping` sur `val_accuracy` (patience=3).
 
 ---
 
@@ -483,29 +511,35 @@ Le traitement s'effectue par batches configurables (`batch_size`). Les paramètr
 
 ### 5.6 Pipeline `train_reliability` (Exécution Asynchrone / Ponctuelle)
 
-* **Objectif :** Entraîner un classifieur de fiabilité supervisé sur le corpus Bluesky classé, qui devient le **classifieur principal** exposé par l'API (remplaçant KMeans).
+* **Objectif :** Entraîner un classifieur de fiabilité supervisé sur des labels terrain issus de l'ingestion, qui devient le **classifieur principal** exposé par l'API (remplaçant KMeans).
 * **Architecture :**
-  1. Extraction de `classified_posts` (champ `is_real` comme label, `normalized_text` comme feature).
+  1. Extraction depuis `cleaned_posts` en utilisant le champ `source_label` comme label de vérité terrain :
+     * Posts `source_label = "reliable"` → label 1 (vrai)
+     * Posts de catégorie `"Misinformation"` → label 0 (faux)
+
+     > Cette approche évite la circularité des pseudo-labels KMeans : les labels sont ancrés sur l'identité des sources (comptes vérifiés vs. thème "misinformation"), pas sur le clustering.
+
   2. Encodage dense via `SentenceTransformer` (`paraphrase-multilingual-MiniLM-L12-v2`) — vecteurs L2-normalisés.
   3. Entraînement d'une `LogisticRegression` (scikit-learn) avec `class_weight="balanced"` et validation croisée ROC-AUC (5-fold).
   4. Sérialisation du classifieur dans `data/06_models/reliability_classifier.pkl`.
 
-Le score ROC-AUC est journalisé à l'issue de l'entraînement. Ce pipeline doit être exécuté au moins une fois avant le démarrage de l'API pour activer la voie d'inférence principale.
+Le score ROC-AUC est journalisé à l'issue de l'entraînement. Ce pipeline est inclus dans `kedro run --pipeline=vectorisation` (via `make run3`) et peut aussi être exécuté isolément.
 
-* **Commande d'activation :** `kedro run --pipeline=train_reliability`.
+* **Commande d'activation :** `kedro run --pipeline=train_reliability` (ou via `make run3` qui l'enchaîne après vectorisation).
 
 ---
 
 ## 6. Couche de Persistance (MongoDB)
 
-L'application centralise ses données au sein d'une instance NoSQL MongoDB unique nommée `bluesky_db`. Les accès clients sont initialisés par le module partagé `shared/mongo.py` à l'aide de l'URI de connexion injectée via la variable d'environnement `MONGO_CONNECTION_STRING`.
+L'application centralise ses données au sein d'une instance **MongoDB Atlas** (cloud managé, externe au Docker Compose) nommée `bluesky_db`. Les accès clients sont initialisés par le module partagé `shared/mongo.py` à l'aide de l'URI de connexion injectée via la variable d'environnement `MONGO_CONNECTION_STRING`.
 
 ### Schéma logique des collections
 
 ```
 bluesky_db (Base de données)
   ├── posts (Publications brutes)
-  │     └── [ _id, unique_id, username, text, created_at, category, utc_saved_at ]
+  │     └── [ _id, unique_id, username, text, created_at, category, source_label, utc_saved_at ]
+  │           source_label ∈ { "reliable", "unverified" } — attribué à l'ingestion selon la source
   │
   ├── cleaned_posts (Publications prétraitées par NLP)
   │     └── [ _id, unique_id, username, created_at, category, normalized_text, utc_saved_at ]
@@ -513,8 +547,10 @@ bluesky_db (Base de données)
   ├── classified_posts (Résultats d'inférence KMeans/Reliability)
   │     └── [ _id, unique_id, username, category, normalized_text, fake_news_prob, is_real, cluster, classified_at ]
   │
-  ├── emotion_posts (Résultats d'inférence DistilRoBERTa — Ekman 7)
+  ├── emotion_posts (Résultats d'inférence DistilRoBERTa — Ekman 7, batch pipeline)
   │     └── [ _id, unique_id, username, category, normalized_text, emotion, emotion_score, classified_at ]
+  │           ⚠ Stocke uniquement l'émotion dominante (top-1). L'endpoint /emotion retourne
+  │             les 7 scores complets en temps réel sans passer par cette collection.
   │
   └── energy_logs (Traces de consommation CodeCarbon)
         └── [ _id, pipeline_name, node_name, run_id, timestamp, duration_s, energy_kwh, co2_kg, ... ]
@@ -565,7 +601,9 @@ Au démarrage de l'application, le gestionnaire de cycle de vie FastAPI (`lifesp
 
 #### `POST /ask`
 
-Prend en charge l'évaluation instantanée d'une affirmation soumise par un utilisateur.
+Retourne le **score de crédibilité stylistique** d'un texte soumis par l'utilisateur, accompagné d'une explication en langage naturel.
+
+> **Interprétation du score :** la valeur `probability` exprime la similarité stylistique du texte avec le corpus de sources vérifiées (Reuters, AFP, BBC…). Un score élevé indique que le texte ressemble à du contenu issu de médias fiables ; un score faible indique une proximité avec des contenus catégorisés "misinformation". Il ne s'agit **pas** d'une attestation de vérité factuelle.
 
 * **Contrat d'entrée (JSON) :**
 ```json
@@ -573,23 +611,33 @@ Prend en charge l'évaluation instantanée d'une affirmation soumise par un util
 ```
 
 * **Logique métier interne :**
-1. **Phase de classification synchrone (ReliabilityService — principal) :** Encodage du texte via `SentenceTransformer` puis prédiction de probabilité par `LogisticRegression`. Si le fichier `reliability_classifier.pkl` est absent, repli automatique sur `KMeansService` avec journalisation d'un avertissement.
-2. **Traduction du score en verdict discret (`ProbabilityScoreModel`) :**
-   * $\text{Score} \ge 0.60 \longrightarrow \text{"true"}$
+1. **Score de crédibilité (ReliabilityService — principal) :** Encodage du texte via `SentenceTransformer` puis prédiction de probabilité par `LogisticRegression`. Si `reliability_classifier.pkl` est absent, repli automatique sur `KMeansService` avec journalisation d'un avertissement.
+2. **Traduction du score en niveau de crédibilité discret (`ProbabilityScoreModel`) :**
+   * $\text{Score} \ge 0.60 \longrightarrow \text{"true"}$ — style très proche des sources fiables
    * $\text{Score} \ge 0.40 \longrightarrow \text{"very likely true"}$
    * $\text{Score} \ge 0.20 \longrightarrow \text{"uncertain"}$
    * $\text{Score} > 0 \longrightarrow \text{"very likely false"}$
-   * $\text{Score} = 0 \longrightarrow \text{"false"}$
-3. **Phase d'explication asynchrone (`OllamaService`) :** Sollicitation du LLM local `qwen2:1.5b` par une requête HTTP asynchrone (`httpx.AsyncClient`) avec un timeout de 300 secondes. Le prompt détecte la langue du texte soumis et répond dans cette même langue, se limitant à 2-3 phrases sur les caractéristiques stylistiques du texte. En cas de défaillance d'Ollama, une chaîne vide est retournée sans bloquer la réponse de classification.
-4. **Télémétrie :** Incrémentation des compteurs Prometheus selon le verdict rendu.
+   * $\text{Score} = 0 \longrightarrow \text{"false"}$ — style très proche des contenus misinformation
+3. **Explication stylistique asynchrone (`OllamaService`) :** Sollicitation du LLM local `qwen2:1.5b` via `httpx.AsyncClient` (timeout 300 s). Le prompt détecte la langue du texte et produit 2-3 phrases décrivant les caractéristiques stylistiques qui ont influencé le score. En cas de défaillance d'Ollama, une chaîne vide est retournée sans bloquer la réponse.
+4. **Télémétrie :** Incrémentation des compteurs Prometheus selon le niveau de crédibilité rendu.
 
-* **Contrat de sortie (JSON) :**
+* **Contrat de sortie (JSON) — voie principale (`ReliabilityService`) :**
 ```json
 {
   "verdict": "true | very likely true | uncertain | very likely false | false",
   "probability": 0.9124,
   "based_on": "reliability_classifier",
-  "explanation": "L'analyse linguistique met en évidence une structure syntaxique informative dénuée d'artifices hyperboliques..."
+  "explanation": "L'analyse linguistique met en évidence une structure syntaxique informative..."
+}
+```
+* **Contrat de sortie (JSON) — voie de repli (`KMeansService`) :**
+```json
+{
+  "verdict": "uncertain",
+  "probability": 0.5,
+  "based_on": "kmeans",
+  "cluster": 1,
+  "explanation": ""
 }
 ```
 
@@ -635,11 +683,12 @@ Les modules logés dans le répertoire `shared/` constituent la bibliothèque de
 * **`shared/energy_service.py` :** Couche d'abstraction pour l'archivage et la récupération des journaux d'émissions carbone stockés dans la collection `energy_logs`.
 * **`shared/embedding_service.py` :** Encodeur dense Singleton basé sur `SentenceTransformer` (`paraphrase-multilingual-MiniLM-L12-v2` par défaut, configurable via `EMBEDDING_MODEL`). Produit des vecteurs L2-normalisés. Partagé par `ReliabilityService` et le pipeline `train_reliability`. Expose également `ProbabilityScoreModel` (seuils de classification : 0.60 / 0.40 / 0.20).
 * **`shared/reliability_service.py` :** Singleton chargeant le classifieur `LogisticRegression` sérialisé (`reliability_classifier.pkl`). Classifieur **principal** de l'endpoint `/ask`. Lève `FileNotFoundError` si l'artefact est absent (entraînement requis via `train_reliability`).
-* **`shared/kmeans_service.py` :** Singleton chargeant les artefacts `tfidf_vectorizer.pkl` et `kmeans_model.pkl`. Classifieur **de repli** utilisé par `/ask` si `ReliabilityService` n'est pas disponible.
+* **`shared/kmeans_service.py` :** Singleton chargeant l'artefact `kmeans_model.pkl`. Encode le texte via `embedding_service.encode()` (SentenceTransformer), puis prédit le cluster. Classifieur **de repli** utilisé par `/ask` si `ReliabilityService` n'est pas disponible.
 * **`shared/emotion_inference_service.py` :** Singleton chargeant le modèle `j-hartmann/emotion-english-distilroberta-base` via HuggingFace `pipeline`. Expose `classify(text)` qui retourne les 7 scores Ekman triés par confiance décroissante. Utilisé par l'endpoint `/emotion` et pré-chargé au démarrage de l'API.
 * **`shared/ollama_service.py` :** Connecteur asynchrone gérant la communication avec l'API HTTP du conteneur Ollama local (`qwen2:1.5b`). Implémente `LLMInterface`. Inclut une détection automatique de la langue du texte soumis dans le prompt.
 * **`shared/claude_service.py` :** Alternative d'explication LLM via `claude-agent-sdk` (modèle `claude-opus-4-6`). Implémente `LLMInterface`. Non actif en production principale (disponible comme remplacement d'Ollama).
 * **`shared/gemini_service.py` :** Module redondant de secours s'appuyant sur le SDK officiel `google-genai` pour déporter l'analyse textuelle sur le cloud public en cas de surcharge des ressources locales.
+* **`shared/lstm_service.py` :** Service d'inférence pour le modèle LSTM entraîné par `model_training` (`lstm_model.keras` + `lstm_tokenizer.pkl`). Non intégré à l'API de production — disponible pour des comparaisons expérimentales hors ligne.
 * **`shared/rag.py` :** Moteur autonome de recherche par similarité cosinus s'appuyant sur un index pré-calculé (`rag_vectors.joblib`). Permet l'injection de contexte connexe au sein d'un prompt LLM (non actif sur l'API de production principale).
 * **`shared/llm_interface.py` :** Classe abstraite pure définissant le contrat d'interface commun (`explain`) pour l'ensemble des intégrations de modèles de langage.
 * **`shared/metrics.py` :** Déclaration centralisée des métriques Prometheus applicatives (`fakenews_verdict_total`, `fakenews_llm_latency_seconds`).
@@ -698,7 +747,8 @@ L'accès à l'infrastructure s'effectue via un serveur HTTP Nginx configuré com
        │
        ├──► Route: /          ──► proxy_pass http://streamlit:8501 (Avec upgrade WebSocket)
        ├──► Route: /airflow/  ──► proxy_pass http://airflow-webserver:8080/airflow/
-       └──► Route: /grafana/  ──► proxy_pass http://grafana:3000
+       ├──► Route: /grafana/  ──► proxy_pass http://grafana:3000
+       └──► Route: /docs/     ──► proxy_pass http://docs/docs/  (Site MkDocs statique)
 
 ```
 
@@ -721,6 +771,19 @@ La planification des tâches, la gestion des dépendances et la robustesse face 
 
 * **RDBMS de gestion d'état :** Base de données relationnelle MariaDB (`projet_etudes_db`).
 * **Génération des graphes de tâches :** Transposition automatique des nœuds Kedro en tâches Airflow (*DAGs*) via l'extension de compilation `kedro-airflow`.
+
+### Schedules et orchestration des DAGs
+
+Les quatre DAGs du pipeline `__default__` forment une **chaîne de déclenchement** en cascade :
+
+| DAG | Schedule autonome | Déclenchement |
+| --- | --- | --- |
+| `dag_ingest_from_bluesky` | `5 * * * *` — toutes les heures à H:05 | — |
+| `dag_nlp_transform` | aucun | Déclenché par `ingest_from_bluesky` à sa fin |
+| `dag_vectorisation` | `0 3 * * *` — filet de sécurité quotidien à 03:00 UTC | Déclenché aussi par `nlp_transform` |
+| `dag_emotion_classification` | aucun | Déclenché par `nlp_transform` (en parallèle de `vectorisation`) |
+
+Le flux nominal est donc : `ingest` (horaire) → `nlp_transform` → `vectorisation` + `emotion_classification` (en parallèle au niveau Airflow, chacun déclenché par `nlp_transform`).
 
 ### Processus d'initialisation de l'orchestrateur (Séquence de boot)
 
@@ -753,13 +816,13 @@ Job [test] (Dépendant du succès de lint)
 Job [deploy] (Dépendant du succès de test)
  Condition : tag Git (refs/tags/*) OU déclenchement manuel (workflow_dispatch)
  └── Connexion SSH sécurisée sur l'instance AWS EC2 cible
-      ├── Pull des dernières modifications Git
+      ├── git pull origin main  ← toujours main (convention : les tags se posent sur main)
       ├── Reconstruction des images applicatives (docker compose build)
       └── Relance à chaud des conteneurs (docker compose up -d --pull never)
 
 ```
 
-> **Note :** Le déploiement n'est plus conditionné à la branche `main` mais à la présence d'un **tag Git** ou à un déclenchement manuel. Cela permet de déployer depuis n'importe quelle branche validée sans modifier la branche principale.
+> **Convention de release :** Les tags de déploiement sont **toujours créés depuis `main`**. Le script SSH tire donc systématiquement `main`, quelle que soit la branche qui a déclenché le workflow. Poser un tag sur une autre branche sans merger vers `main` au préalable ne déploiera pas ce code.
 
 ---
 
@@ -773,9 +836,11 @@ L'ensemble des secrets et des paramètres d'infrastructure est centralisé au se
 | `BSKY_USERNAME` | Ingestion | Identifiant de compte (handle) pour l'accès à l'API Bluesky |
 | `BSKY_APP_PASSWORD` | Ingestion | Jeton d'application spécifique (*App Password*) généré sur Bluesky |
 | `OLLAMA_HOST` | API Applicative | Point d'accès réseau vers l'API d'Ollama (`http://ollama:11434`) |
-| `OLLAMA_MODEL` | API Applicative | Désignation du modèle de langage cible (`qwen2:1.5b`) |
+| `OLLAMA_MODEL` | API Applicative | Modèle LLM cible. Forcé à `qwen2:1.5b` dans `docker-compose.yml` ; le code `ollama_service.py` default à `llama3.2:3b` si la variable est absente. |
+| `EMBEDDING_MODEL` | API / Pipeline | Modèle SentenceTransformer pour `ReliabilityService` et `train_reliability`. Optionnel — default : `paraphrase-multilingual-MiniLM-L12-v2`. |
 | `API_URL` | Interface Web | Point d'accès réseau vers le service FastAPI (`http://api:8080/`) |
 | `GOOGLE_API_KEY` | Module Failover | Clé d'authentification pour le service distant de secours Gemini |
+| `ANTHROPIC_API_KEY` | Module Failover | Clé d'authentification pour `ClaudeService` (`claude-agent-sdk`). Non requis si `ClaudeService` n'est pas activé (non câblé en production par défaut). |
 
 ---
 
@@ -788,52 +853,67 @@ sequenceDiagram
     participant AF as Airflow Scheduler
     participant KD as Kedro + EnergyHook
     participant BS as API Distante Bluesky
-    participant MG as Base MongoDB
+    participant MG as MongoDB Atlas
     participant API as FastAPI (:8080)
     participant OL as Serveur Ollama
     participant ST as Serveur Streamlit
     actor User as Utilisateur Final
 
     rect rgb(25, 35, 65)
-        Note over AF,MG: Étape 1 : Routine d'Ingestion Périodique
-        AF->>KD: Exécution : kedro run --pipeline=ingest_from_bluesky
-        KD->>BS: Requête : search_posts(keyword, limit=25) sur 20 axes
-        BS-->>KD: Restitution des payloads JSON (Flux brut)
-        KD->>MG: Écriture de masse (insert_many) ──► Collection: posts
-        KD->>MG: Enregistrement télémétrie ──► Collection: energy_logs
+        Note over AF,MG: Étape 1 : Ingestion horaire (H:05)
+        AF->>KD: kedro run --pipeline=ingest_from_bluesky
+        KD->>BS: search_posts(keyword, limit=25) sur 20 axes thématiques
+        BS-->>KD: Payloads JSON bruts
+        KD->>MG: insert_many ──► Collection: posts
+        KD->>MG: Télémétrie ──► Collection: energy_logs
     end
 
     rect rgb(25, 55, 60)
-        Note over AF,MG: Étape 2 : Transformation et Nettoyage NLP
-        AF->>KD: Exécution : kedro run --pipeline=nlp_transform
-        KD->>MG: Requête différentielle (Omission des unique_id existants)
-        MG-->>KD: Extraction des textes bruts
-        KD->>KD: Processus : clean_text() + normalize_text() (Regex, Ponctuation, ASCII)
-        KD->>MG: Persistance par Upsert ──► Collection: cleaned_posts
-        KD->>MG: Enregistrement télémétrie ──► Collection: energy_logs
+        Note over AF,MG: Étape 2 : NLP (déclenché par ingest)
+        AF->>KD: kedro run --pipeline=nlp_transform
+        KD->>MG: Requête différentielle (unique_id absents de cleaned_posts)
+        MG-->>KD: Textes bruts non traités
+        KD->>KD: clean_text() + normalize_text()
+        KD->>MG: Upsert ──► Collection: cleaned_posts
+        KD->>MG: Télémétrie ──► Collection: energy_logs
     end
 
     rect rgb(25, 65, 40)
-        Note over AF,MG: Étape 3 : Vectorisation et Apprentissage KMeans
-        AF->>KD: Exécution : kedro run --pipeline=vectorisation
-        KD->>MG: Extraction des textes nettoyés non traités
-        MG-->>KD: Restitution du corpus textuel normalisé
-        KD->>KD: Transformation matricielle TF-IDF (Extraction de 5000 features)
-        KD->>KD: Inférence non supervisée KMeans (k=2) ──► Calcul du ratio de distances
-        KD->>MG: Écriture transactionnelle groupée (bulk_write) ──► Collection: classified_posts
-        KD->>KD: Export physique des artefacts sérialisés : tfidf_vectorizer.pkl / kmeans_model.pkl
-        KD->>MG: Enregistrement télémétrie ──► Collection: energy_logs
+        Note over AF,MG: Étape 3a : Vectorisation (déclenché par nlp_transform ou quotidien 03:00 UTC)
+        AF->>KD: kedro run --pipeline=vectorisation
+        KD->>MG: Textes nettoyés non classifiés
+        MG-->>KD: Corpus normalisé
+        KD->>KD: SentenceTransformer (embeddings) + KMeans (k=2) ──► labels is_real (orientation dynamique)
+        KD->>MG: bulk_write ──► Collection: classified_posts
+        KD->>KD: Export : kmeans_model.pkl / reliability_classifier.pkl
+        KD->>MG: Télémétrie ──► Collection: energy_logs
+    end
+
+    rect rgb(20, 60, 50)
+        Note over AF,MG: Étape 3b : Émotion (déclenché par nlp_transform, en parallèle de 3a)
+        AF->>KD: kedro run --pipeline=emotion_classification
+        KD->>MG: Textes nettoyés non encore classifiés en émotion
+        MG-->>KD: Corpus normalisé (incrémental)
+        KD->>KD: DistilRoBERTa (j-hartmann) ──► émotion dominante + score
+        KD->>MG: bulk_write ──► Collection: emotion_posts
+        KD->>MG: Télémétrie ──► Collection: energy_logs
     end
 
     rect rgb(65, 25, 30)
-        Note over User,ST: Étape 4 : Requêtage Synchrone & Inférence Temps Réel
-        User->>ST: Soumission d'une affirmation textuelle (Onglet Fact-Check)
-        ST->>API: Requête HTTP : POST /ask {"question": "..."}
-        API->>API: Interception KMeansService : Transformation à chaud & Prédiction du verdict
-        API->>OL: Requête HTTP Asynchrone : POST /api/chat (Modèle qwen2:1.5b)
-        OL-->>API: Restitution du rapport d'explication syntaxique
-        API-->>ST: Payload JSON enrichi {verdict, probability, cluster, explanation}
-        ST-->>User: Rendu graphique dynamique (Badge coloré, Jauge de confiance & Texte du LLM)
+        Note over User,ST: Étape 4 : Inférence temps réel
+        User->>ST: Soumission d'une affirmation (Onglet Fact-Check)
+        par Appels parallèles (ThreadPoolExecutor)
+            ST->>API: POST /ask {"question": "..."}
+            API->>API: ReliabilityService (LogisticRegression + embeddings) — repli KMeans si pkl absent
+            API->>OL: POST /api/chat (qwen2:1.5b) — explication stylistique
+            OL-->>API: Explication en langage naturel
+            API-->>ST: {verdict, probability, based_on, explanation}
+        and
+            ST->>API: POST /emotion {"text": "..."}
+            API->>API: EmotionInferenceService (DistilRoBERTa) ──► 7 scores Ekman
+            API-->>ST: {emotions: [...]}
+        end
+        ST-->>User: Verdict coloré + jauge + explication LLM + donut émotions
     end
 
 ```
@@ -845,12 +925,13 @@ sequenceDiagram
 ### Prérequis Système
 
 * Moteur Docker et extension Docker Compose v2.
-* Fichier d'environnement `.env` dûment configuré à la racine du projet.
-* Disponibilité d'une connexion Internet lors de la phase initiale de construction (Téléchargement des images de base et du modèle Ollama d'environ 900 Mo).
+* Fichier d'environnement `.env` dûment configuré à la racine du projet (voir §15).
+* **RAM disponible recommandée : ≥ 6 Go.** Ollama (`qwen2:1.5b` ~900 Mo), DistilRoBERTa (~300 Mo) et SentenceTransformer (~120 Mo) coexistent dans le conteneur `api` au démarrage.
+* Connexion Internet lors de la première construction : téléchargement cumulé d'environ **2–3 Go** (images Docker de base + modèle Ollama + modèles HuggingFace). Les runs suivants utilisent les volumes `ollama-data` et `hf-cache`.
 
-### Déploiement en Environnement de Production (AWS EC2)
+### Déploiement en Environnement de Production (Hôte Linux)
 
-L'intégration sur l'instance cloud s'effectue automatiquement via la CI/CD lors de la validation d'un commit sur la branche principale. Pour forcer manuellement une réinitialisation à chaud directement sur le serveur :
+L'intégration sur le serveur s'effectue automatiquement via la CI/CD lors de la création d'un **tag Git sur `main`** ou d'un déclenchement manuel (`workflow_dispatch`). Pour forcer manuellement une réinitialisation à chaud directement sur le serveur :
 
 ```bash
 # Accès au répertoire applicatif sur l'instance cloud
@@ -879,7 +960,10 @@ Pour instancier rapidement l'ensemble de l'infrastructure au sein d'un environne
 
 ```bash
 make up
-# Raccourci équivalent à : docker compose build --no-cache && docker compose up -d
+# Enchaîne trois étapes :
+#   1. docker compose build --no-cache  (reconstruction des images)
+#   2. airflow-init                     (migration BD Airflow + création du compte admin)
+#   3. docker compose up -d             (démarrage de tous les services)
 
 ```
 
@@ -899,10 +983,18 @@ make run1          # kedro run --pipeline=ingest_from_bluesky
 # Étape 3 : Lancement du nettoyage textuel et des transformations NLP
 make run2          # kedro run --pipeline=nlp_transform
 
-# Étape 4 : Vectorisation, clustering non supervisé et génération des fichiers .pkl
-make run3          # kedro run --pipeline=vectorisation
+# Étape 4 : Vectorisation + entraînement du classifieur de fiabilité (enchaînés par make run3)
+#   Sans cette étape, l'API démarre en mode dégradé (repli KMeans).
+make run3
+# Équivalent à :
+#   kedro run --pipeline=vectorisation
+#   kedro run --pipeline=train_reliability
 
-# Étape 5 : Démarrage des modules applicatifs de service
+# Étape 5 : Classification des émotions (optionnel pour le démarrage de l'API,
+#   requis pour alimenter l'onglet Analytics > Emotions de Streamlit)
+kedro run --pipeline=emotion_classification
+
+# Étape 6 : Démarrage des modules applicatifs de service
 make api           # uvicorn src.api.api:app --host 0.0.0.0 --port 8080
 make web           # streamlit run src/streamlit_app/streamlit_app.py
 
@@ -917,6 +1009,16 @@ make down          # docker compose down -v
 
 ```
 
-```
+---
 
-```
+## 18. Limitations Connues & Dette Technique
+
+| # | Limitation | Impact | Piste d'amélioration |
+| --- | --- | --- | --- |
+| 1 | **Labels terrain partiels** : `train_reliability` est entraîné uniquement sur les posts `source_label = "reliable"` (comptes vérifiés) et les posts de catégorie `"Misinformation"` — le reste du corpus (`"unverified"`) n'est pas labellisé. Le classifieur n'est entraîné que sur une sous-population potentiellement non représentative. | La généralisation sur les posts `"unverified"` n'est pas garantie. | Annoter manuellement un échantillon du corpus `"unverified"`, ou enrichir la liste `reliable_domains`. |
+| 2 | **Modèle d'émotion anglophone** : `j-hartmann/emotion-english-distilroberta-base` est entraîné sur de l'anglais. Bluesky contient des posts multilingues. | Scores d'émotion potentiellement inexacts sur les posts non anglais. | Utiliser un modèle multilingue ou filtrer l'ingestion à `lang="en"` uniquement. |
+| 3 | **HTTP sans TLS** : Nginx expose uniquement le port 80. Les communications sont en clair. | Pas de confidentialité des données en transit, pas d'URL `https://`. | Mettre en place Let's Encrypt + Certbot ou un reverse proxy TLS en amont (Cloudflare, Caddy). |
+| 4 | **Credentials Airflow par défaut** : `admin`/`admin` et `AIRFLOW__WEBSERVER__SECRET_KEY=changeme` sont codés dans `docker-compose.yml`. | Exposition de l'interface Airflow à toute personne connaissant l'IP du serveur. | Injecter ces valeurs via le fichier `.env` et forcer leur changement au premier déploiement. |
+| 5 | **Pas d'indexation MongoDB** : Aucun index explicite sur `unique_id` ou `classified_at` dans les collections. | Dégradation des performances en lecture au fur et à mesure que les collections grossissent. | Créer des index uniques sur `unique_id` (toutes collections) et des index TTL si une rétention est souhaitée. |
+| 6 | **Inférence Ollama CPU-only** : Le modèle `qwen2:1.5b` tourne sur CPU dans Docker. | Latence de réponse `/ask` pouvant atteindre 2–3 minutes à froid (premier appel après démarrage). | Passer à une instance avec GPU ou utiliser `ClaudeService` / `GeminiService` comme fallback LLM. |
+| 7 | **`lstm_service.py`, `rag.py`, `claude_service.py`** : Modules présents dans `shared/` mais non câblés à l'API de production. | Code mort maintenu, risque de divergence silencieuse avec l'API active. | Soit intégrer formellement, soit déplacer dans un répertoire `experimental/` clairement séparé. |

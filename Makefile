@@ -70,3 +70,17 @@ quickstart: install-all run3 web api
 .PHONY: startapp
 startapp:
 	web api
+
+
+# Define the non-airflow services explicitly
+APP_SERVICES = nginx ollama api streamlit node-exporter prometheus grafana docs
+
+.PHONY: up-apps down-apps
+
+## Run all application and monitoring containers (excludes Airflow)
+dev-run:
+	docker compose up  $(APP_SERVICES)
+
+## Stop and remove the running application containers
+dev-down:
+	docker compose stop $(APP_SERVICES)

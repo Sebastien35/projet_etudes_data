@@ -37,44 +37,44 @@ services:
       - docs
 
 
-  # # ── Airflow init ──────────────────────────────────────────────────────────
-  # airflow-init:
-  #   <<: *airflow-common
-  #   image: ${AIRFLOW_IMAGE:-fakeshield-airflow:latest}
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.airflow
-  #   container_name: airflow-init
-  #   restart: "no"
-  #   command: ["bash", "-c", "i=0; until airflow db check 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; echo \"Waiting for DB ($$i/30)...\"; sleep 5; done && airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com 2>/dev/null; exit 0"]
+  # ── Airflow init ──────────────────────────────────────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    image: ${AIRFLOW_IMAGE:-fakeshield-airflow:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-init
+    restart: "no"
+    command: ["bash", "-c", "i=0; until airflow db check 2>/dev/null; do i=$$((i+1)); [ $$i -ge 30 ] && exit 1; echo \"Waiting for DB ($$i/30)...\"; sleep 5; done && airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com 2>/dev/null; exit 0"]
 
-  # # ── Airflow webserver ─────────────────────────────────────────────────────
-  # airflow-webserver:
-  #   <<: *airflow-common
-  #   image: ${AIRFLOW_IMAGE:-fakeshield-airflow:latest}
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.airflow
-  #   container_name: airflow-webserver
-  #   restart: always
-  #   depends_on:
-  #     airflow-init:
-  #       condition: service_completed_successfully
-  #   command: webserver
+  # ── Airflow webserver ─────────────────────────────────────────────────────
+  airflow-webserver:
+    <<: *airflow-common
+    image: ${AIRFLOW_IMAGE:-fakeshield-airflow:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-webserver
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: webserver
 
-  # # ── Airflow scheduler ─────────────────────────────────────────────────────
-  # airflow-scheduler:
-  #   <<: *airflow-common
-  #   image: ${AIRFLOW_IMAGE:-fakeshield-airflow:latest}
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.airflow
-  #   container_name: airflow-scheduler
-  #   restart: always
-  #   depends_on:
-  #     airflow-init:
-  #       condition: service_completed_successfully
-  #   command: scheduler
+  # ── Airflow scheduler ─────────────────────────────────────────────────────
+  airflow-scheduler:
+    <<: *airflow-common
+    image: ${AIRFLOW_IMAGE:-fakeshield-airflow:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-scheduler
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: scheduler
 
   # ── MariaDB (Airflow metadata) ────────────────────────────────────────────
   database:
@@ -90,8 +90,6 @@ services:
       - "3360:3306"
 
   # ── Ollama (CPU-only LLM) ─────────────────────────────────────────────────
-  # mistral:7b (~4 GB) — better instruction following than llama3.2:3b,
-  # fits in 16 GB RAM, expect ~2-4 min/response on CPU.
   ollama:
     image: ollama/ollama
     container_name: ollama
