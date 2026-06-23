@@ -45,6 +45,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from airflow.decorators import dag
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 from kedro_operator import KedroOperator
 
@@ -76,11 +77,20 @@ def vectorisation_dag():
     # ── All 5 nodes run inside a single KedroSession ──────────────────────────
     # Kedro handles the internal fan-out (save_model_artifacts + save_predictions
     # both receive outputs of cluster_posts and run concurrently within the session).
-    KedroOperator(
+    vectorisation = KedroOperator(
         task_id="vectorisation",
         pipeline_name=PIPELINE,
         pool="default_pool",
     )
+
+    trigger_reliability = TriggerDagRunOperator(
+        task_id="trigger_train_reliability",
+        trigger_dag_id="dag_train_reliability",
+        wait_for_completion=False,
+        reset_dag_run=True,
+    )
+
+    vectorisation >> trigger_reliability
 
 
 vectorisation_dag()
