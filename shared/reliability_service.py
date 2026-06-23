@@ -2,13 +2,16 @@
 Singleton service for reliability scoring using the supervised LogisticRegression model.
 Returns a probability in [0, 1] — high = reliable (real news), low = unreliable (fake news).
 Trained on trusted-outlet posts (label=1) vs misinformation posts (label=0).
+Features: MiniLM sentence embeddings + 5 stylometric features.
 """
 
 import logging
 import pickle
 from pathlib import Path
 
-from shared.embedding_service import encode
+import numpy as np
+
+from shared.embedding_service import encode, extract_style_features
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +32,10 @@ class ReliabilityService:
         logger.info(f"ReliabilityService loaded from {classifier_path}")
 
     def classify(self, text: str) -> dict:
-        vec = encode([text])  # shape (1, embedding_dim)
-        prob_real = float(self._clf.predict_proba(vec)[0][1])
+        emb = encode([text])
+        style = np.array([extract_style_features(text)], dtype=float)
+        X = np.hstack([emb, style])
+        prob_real = float(self._clf.predict_proba(X)[0][1])
         verdict = f"{int(round(prob_real * 100))}% real"
 
         return {

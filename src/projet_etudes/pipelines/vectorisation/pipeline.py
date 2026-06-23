@@ -30,7 +30,7 @@ _KMEANS_NODES = [
     ),
     Node(
         func=encode_texts,
-        inputs=["texts", "params:vectorisation.embedding_model"],
+        inputs=["texts", "posts_", "params:vectorisation.embedding_model"],
         outputs="embedding_matrix",
         name="encode_texts_node",
     ),
@@ -64,7 +64,7 @@ _RELIABILITY_NODES = [
             "params:vectorisation.reliability_min_reliable",
             "params:vectorisation.reliability_min_misinfo",
         ],
-        outputs=["reliability_texts", "reliability_labels"],
+        outputs=["reliability_texts", "reliability_labels", "reliability_style"],
         name="get_reliability_training_data_node",
     ),
     Node(
@@ -73,6 +73,7 @@ _RELIABILITY_NODES = [
             "reliability_texts",
             "reliability_labels",
             "params:vectorisation.embedding_model",
+            "reliability_style",
         ],
         outputs="reliability_clf",
         name="train_reliability_classifier_node",

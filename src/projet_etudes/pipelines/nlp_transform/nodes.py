@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../../../..")
+from shared.embedding_service import extract_style_features  # noqa
 from shared.mongo import mongo_client  # noqa
 
 load_dotenv()
@@ -55,6 +56,8 @@ def clean_text(df: pd.DataFrame) -> pd.DataFrame:
         return text
 
     df = df.copy()
+    # Style features extracted BEFORE cleaning (caps, punctuation, emojis carry signal)
+    df["style_features"] = df["text"].apply(extract_style_features)
     df["clean_text"] = df["text"].apply(_clean)
     return df
 
@@ -86,6 +89,7 @@ def save_to_db(df: pd.DataFrame) -> int:
                 "category": record["category"],
                 "source_label": record.get("source_label", "unverified"),
                 "normalized_text": record["normalized_text"],
+                "style_features": record.get("style_features", [0.0] * 5),
             }
         )
     return len(records)

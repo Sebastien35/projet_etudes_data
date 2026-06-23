@@ -5,16 +5,15 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        args: [--unsafe]
       - id: check-added-large-files
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0  # or the latest version
+    rev: v0.12.12
     hooks:
-      - id: ruff-check      # runs the linter
-        args: [--fix]       # optional, fixes lint issues automatically
-        files: ^src/projet_etudes/  # only run on this directory
-      - id: ruff-format     # runs the formatter
-        files: ^src/projet_etudes/
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
 
   - repo: https://github.com/hadolint/hadolint
     rev: v2.12.0  # Vérifiez la dernière version sur GitHub

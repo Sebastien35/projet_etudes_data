@@ -18,23 +18,31 @@ mongo = mongo_client()
 
 def get_cleaned_posts():
     """Fetch posts that have been normalised but not yet classified."""
-    cleaned_collection = mongo.use_collection("cleaned_posts")
-    classified_ids = set(mongo.use_collection("classified_posts").distinct("unique_id"))
-
-    raw_posts = list(
-        cleaned_collection.find({"normalized_text": {"$exists": True, "$ne": ""}})
+    classified_ids = list(
+        mongo.use_collection("classified_posts").distinct("unique_id")
     )
-    posts = [p for p in raw_posts if p["unique_id"] not in classified_ids]
+    posts = list(
+        mongo.use_collection("cleaned_posts").find(
+            {
+                "normalized_text": {"$exists": True, "$ne": ""},
+                "unique_id": {"$nin": classified_ids},
+            }
+        )
+    )
     texts = [p["normalized_text"] for p in posts]
-
     logger.info(f"Loaded {len(posts)} unclassified posts for inference")
     return texts, posts
 
 
-def encode_texts(texts: list, embedding_model: str) -> np.ndarray:
-    """Encode normalized texts into dense sentence embeddings."""
-    matrix = embed(texts, model_name=embedding_model)
-    logger.info(f"Embedding matrix shape: {matrix.shape}")
+def encode_texts(texts: list, posts: list, embedding_model: str) -> np.ndarray:
+    """Encode texts into embeddings concatenated with stylometric features."""
+    if not texts:
+        logger.info("No texts to encode — returning empty matrix.")
+        return np.empty((0, 0), dtype=float)
+    embeddings = embed(texts, model_name=embedding_model)
+    style = np.array([p.get("style_features") or [0.0] * 5 for p in posts], dtype=float)
+    matrix = np.hstack([embeddings, style])
+    logger.info(f"Feature matrix shape: {matrix.shape} (embeddings + 5 style features)")
     return matrix
 
 
@@ -47,6 +55,10 @@ def cluster_posts(embedding_matrix, posts: list, n_clusters: int):
     The cluster that scores higher on reliable_rate - misinfo_rate is the real cluster.
     This removes the arbitrary cluster-0=fake assumption.
     """
+    if embedding_matrix.size == 0:
+        logger.info("No new posts to cluster — skipping KMeans.")
+        return np.array([]), np.array([]), None
+
     km = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
     labels = km.fit_predict(embedding_matrix)
 
@@ -103,6 +115,9 @@ def cluster_posts(embedding_matrix, posts: list, n_clusters: int):
 
 def save_model_artifacts(km_model, kmeans_path: str):
     """Persist the fitted KMeans model for the API service."""
+    if km_model is None:
+        logger.info("No KMeans model to save (0 new posts).")
+        return
     Path(kmeans_path).parent.mkdir(parents=True, exist_ok=True)
     with open(kmeans_path, "wb") as f:
         pickle.dump(km_model, f)
@@ -151,23 +166,26 @@ def get_reliability_training_data(
             "Run the ingest_from_bluesky + nlp_transform pipelines first."
         )
 
-    texts = [p["normalized_text"] for p in reliable_posts] + [
-        p["normalized_text"] for p in misinfo_posts
-    ]
+    all_posts = reliable_posts + misinfo_posts
+    texts = [p["normalized_text"] for p in all_posts]
     labels = [1] * len(reliable_posts) + [0] * len(misinfo_posts)
+    style_matrix = np.array(
+        [p.get("style_features") or [0.0] * 5 for p in all_posts], dtype=float
+    )
 
     logger.info(
         f"Reliability training data: {len(reliable_posts)} reliable posts (label=1), "
         f"{len(misinfo_posts)} misinformation posts (label=0)"
     )
-    return texts, labels
+    return texts, labels, style_matrix
 
 
 def train_reliability_classifier(
-    texts: list, labels: list, embedding_model: str
+    texts: list, labels: list, embedding_model: str, style_matrix: np.ndarray
 ) -> LogisticRegression:
-    """Encode texts with sentence embeddings then fit LogisticRegression."""
-    X = embed(texts, model_name=embedding_model)
+    """Encode texts with sentence embeddings + style features then fit LogisticRegression."""
+    embeddings = embed(texts, model_name=embedding_model)
+    X = np.hstack([embeddings, style_matrix])
 
     clf = LogisticRegression(
         max_iter=1000, class_weight="balanced", solver="lbfgs", C=1.0

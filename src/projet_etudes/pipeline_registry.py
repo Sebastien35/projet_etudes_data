@@ -11,12 +11,13 @@ from projet_etudes.pipelines.ingest_from_bluesky.pipeline import (
 from projet_etudes.pipelines.nlp_transform.pipeline import (
     create_pipeline as nlp_pipeline,
 )
+from projet_etudes.pipelines.train_finetuned.pipeline import (
+    create_pipeline as finetuned_pipeline,
+)
 from projet_etudes.pipelines.vectorisation.pipeline import (
     create_pipeline as vectorisation_pipeline,
 )
-from projet_etudes.pipelines.vectorisation.pipeline import (
-    create_reliability_pipeline,
-)
+from projet_etudes.pipelines.vectorisation.pipeline import create_reliability_pipeline
 
 
 def register_pipelines() -> dict[str, Pipeline]:
@@ -27,8 +28,8 @@ def register_pipelines() -> dict[str, Pipeline]:
         "vectorisation": vectorisation_pipeline(),
         "train_reliability": create_reliability_pipeline(),
         "emotion_classification": emotion_pipeline(),
+        "train_finetuned": finetuned_pipeline(),
     }
-    # __default__ excludes model_training (one-off supervised training on Kaggle data)
     pipelines["__default__"] = (
         pipelines["ingest_from_bluesky"]
         + pipelines["nlp_transform"]

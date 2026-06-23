@@ -1,7 +1,11 @@
+import concurrent.futures
+
 import altair as alt
+import pandas as pd
 import streamlit as st
-from streamlit_color_chart import ColorChart
+from streamlit_color_chart import ColorChart, prob_score_model
 from streamlit_logic import (
+    analyze_message_emotion,
     avg_emotion_score,
     emotion_by_category,
     emotion_distribution,
@@ -470,6 +474,72 @@ def glass_chart(chart):
     )
 
 
+EMOTION_COLORS = {
+    "joy": "#34d399",
+    "surprise": "#c084fc",
+    "neutral": "#7878a0",
+    "fear": "#fb923c",
+    "sadness": "#60a5fa",
+    "anger": "#f87171",
+    "disgust": "#94a3b8",
+}
+
+
+def render_emotion_chart(emotions: list[dict]):
+    """Render a compact emotion donut + badge row inside a chat message."""
+    if not emotions:
+        return
+
+    df = pd.DataFrame(emotions)
+    df["pct"] = (df["score"] * 100).round(1)
+    domain = df["emotion"].tolist()
+    emo_range = [EMOTION_COLORS.get(e, C.ACCENT_PRIMARY) for e in domain]
+
+    st.markdown(
+        f'<div style="font-size:0.70rem; color:{C.TEXT_MUTED}; text-transform:uppercase; '
+        f'letter-spacing:0.09em; margin-top:0.8rem; margin-bottom:0.25rem;">Emotion analysis</div>',
+        unsafe_allow_html=True,
+    )
+
+    donut = (
+        alt.Chart(df)
+        .mark_arc(
+            innerRadius=42, outerRadius=82, stroke="rgba(0,0,0,0.12)", strokeWidth=1
+        )
+        .encode(
+            theta=alt.Theta("score:Q"),
+            color=alt.Color(
+                "emotion:N",
+                scale=alt.Scale(domain=domain, range=emo_range),
+                legend=alt.Legend(
+                    orient="right", title=None, labelFontSize=11, symbolSize=90
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("emotion:N", title="Emotion"),
+                alt.Tooltip("pct:Q", title="%", format=".1f"),
+            ],
+        )
+        .properties(height=200)
+    )
+    st.altair_chart(glass_chart(donut), use_container_width=True)
+
+    badges = "".join(
+        f'<span style="background:{EMOTION_COLORS.get(e["emotion"], "#555")}22;'
+        f"color:{EMOTION_COLORS.get(e['emotion'], '#aaa')};"
+        f"border:1px solid {EMOTION_COLORS.get(e['emotion'], '#555')}55;"
+        f'border-radius:99px;padding:2px 10px;font-size:0.71rem;font-weight:600;">'
+        f"{e['emotion'].capitalize()} {round(e['score'] * 100):.0f}%</span>"
+        for e in emotions[:4]
+        if e["score"] > prob_score_model.probable
+    )
+    if badges:
+        st.markdown(
+            f'<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:3px;">{badges}</div>',
+            unsafe_allow_html=True,
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # PAGE — FACT-CHECK CHATBOT
 # ══════════════════════════════════════════════════════════════════════════
@@ -517,6 +587,8 @@ with nav_tab1:
                     st.html(msg["content"])
                 else:
                     st.markdown(msg["content"])
+                if msg.get("emotions"):
+                    render_emotion_chart(msg["emotions"])
 
         if user_input:
             st.session_state.messages.append({"role": "user", "content": user_input})
@@ -525,7 +597,11 @@ with nav_tab1:
 
             with st.chat_message("assistant"):
                 with st.spinner("Checking…"):
-                    result = send_message_api(user_input)
+                    with concurrent.futures.ThreadPoolExecutor() as _pool:
+                        _fact = _pool.submit(send_message_api, user_input)
+                        _emo = _pool.submit(analyze_message_emotion, user_input)
+                        result = _fact.result()
+                        emotions = _emo.result()
 
                 verdict = result["verdict"]
                 color = result["color"]
@@ -600,8 +676,14 @@ with nav_tab1:
                 </div>"""
 
                 st.html(html)
+                render_emotion_chart(emotions)
                 st.session_state.messages.append(
-                    {"role": "assistant", "content": html, "is_html": True}
+                    {
+                        "role": "assistant",
+                        "content": html,
+                        "is_html": True,
+                        "emotions": emotions,
+                    }
                 )
 
         # Bottom padding so the last message isn't hidden behind the input bar
@@ -728,17 +810,6 @@ with nav_tab2:
         st.markdown("</div>", unsafe_allow_html=True)
 
     with tab4:
-        # Ekman palette — consistent across both charts
-        EMOTION_COLORS = {
-            "joy": "#34d399",
-            "surprise": "#c084fc",
-            "neutral": "#7878a0",
-            "fear": "#fb923c",
-            "sadness": "#60a5fa",
-            "anger": "#f87171",
-            "disgust": "#94a3b8",
-        }
-
         if df_emo_dist is None or df_emo_dist.empty:
             st.markdown(
                 f"""
@@ -1122,7 +1193,9 @@ with nav_tab3:
                 **{
                     "Energy (Wh)": lambda d: d["Energy (Wh)"].map(lambda x: f"{x:.4f}"),
                     "CO₂ (mg)": lambda d: d["CO₂ (mg)"].map(lambda x: f"{x:.3f}"),
-                    "Duration (s)": lambda d: d["Duration (s)"].map(lambda x: f"{x:.2f}"),
+                    "Duration (s)": lambda d: d["Duration (s)"].map(
+                        lambda x: f"{x:.2f}"
+                    ),
                     "Time": lambda d: d["Time"].dt.strftime("%Y-%m-%d %H:%M:%S"),
                 }
             )

@@ -163,3 +163,4 @@ mlruns/*
 logs/
 prd-data.pem
 prd-data.pem:Zone.Identifier
+scripts/generate_dat_docx.py
