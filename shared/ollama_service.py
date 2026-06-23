@@ -50,7 +50,7 @@ class OllamaService(LLMInterface):
         pct = int(round(probability * 100))
         tone = (
             "reliable"
-            if pct >= class_service.probable_threshold
+            if probability >= class_service.probable_threshold
             else "potentially misleading"
         )
 

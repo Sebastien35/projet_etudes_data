@@ -1,4 +1,7 @@
 x-airflow-common: &airflow-common
+  dns:
+    - 8.8.8.8
+    - 8.8.4.4
   environment:
     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     - AIRFLOW__CORE__FERNET_KEY=JadWNDV0h__Tf_9V4nJv4J0Oqk3q7YeKH8bbJtE3iwU=
@@ -142,6 +145,9 @@ services:
       dockerfile: Dockerfile.streamlit
     container_name: fakeshield-streamlit
     restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     env_file: .env
     environment:
       - API_URL=http://api:8080/

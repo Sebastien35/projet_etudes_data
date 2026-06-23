@@ -1,7 +1,7 @@
 # Document d'Architecture Technique (DAT) — Projet d'études M1 Data
 
 **Projet :** M1 Data Science — Plateforme de détection automatisée d'infox (*fake news*) sur le réseau Bluesky
-**Version :** 2026-05-28 — branche `develop`
+**Version :** 2026-06-18 — branche `develop`
 
 ---
 
@@ -27,6 +27,7 @@
       - [Mécanisme d'encodage et clustering](#mécanisme-dencodage-et-clustering)
     - [5.4 Pipeline `emotion_classification`](#54-pipeline-emotion_classification)
     - [5.5 Pipeline `train_reliability` (Exécution Asynchrone / Ponctuelle)](#55-pipeline-train_reliability-exécution-asynchrone--ponctuelle)
+    - [5.6 Pipeline `train_finetuned` (Exécution Ponctuelle)](#56-pipeline-train_finetuned-exécution-ponctuelle)
   - [6. Couche de Persistance (MongoDB)](#6-couche-de-persistance-mongodb)
     - [Schéma logique des collections](#schéma-logique-des-collections)
   - [7. Green IT \& Monitoring Énergétique (EnergyHook)](#7-green-it--monitoring-énergétique-energyhook)
@@ -88,9 +89,10 @@ MongoDB [Collection: cleaned_posts]
 │  Kedro vectorisation puis emotion_classification (séquentiels dans __default__)
 ▼
 MongoDB [Collection: classified_posts]   MongoDB [Collection: emotion_posts]
-Artefacts (ReliabilityClassifier + SentenceTransformer/KMeans) ──► FastAPI (/ask, /emotion) ◄── Streamlit UI
-│
-Ollama LLM  (Interprétabilité NLP)
+Artefacts (xlm_roberta_finetuned / ReliabilityClassifier / KMeans) ──► FastAPI (/ask, /emotion) ◄── Streamlit UI
+│                                                                          │
+Ollama LLM  (Interprétabilité NLP)                                        ▲
+                                                                    Cascade (PRIMARY → FALLBACK1 → FALLBACK2)
 ```
 
 ---
@@ -120,9 +122,10 @@ projet_etudes_data/
 ├── shared/                               # Composants transverses partagés (API, UI, Pipelines)
 │   ├── mongo.py                          # Connecteur de persistance
 │   ├── energy_service.py                 # Gestionnaire des métriques CodeCarbon
+│   ├── finetuned_service.py              # Classifieur PRIMARY xlm-roberta-base fine-tuné
 │   ├── kmeans_service.py                 # Moteur d'inférence KMeans (fallback)
-│   ├── reliability_service.py            # Classifieur supervisé principal (LogisticRegression + embeddings)
-│   ├── embedding_service.py              # Encodage SentenceTransformer (paraphrase-multilingual-MiniLM-L12-v2)
+│   ├── reliability_service.py            # Classifieur supervisé LogReg (embeddings + style features)
+│   ├── embedding_service.py              # Encodage SentenceTransformer + extract_style_features
 │   ├── emotion_inference_service.py      # Classifieur d'émotions temps-réel (DistilRoBERTa)
 │   ├── ollama_service.py                 # Client d'inférence LLM local
 │   ├── claude_service.py                 # Client d'inférence Claude (claude-agent-sdk)
@@ -137,12 +140,23 @@ projet_etudes_data/
 │   │   ├── hooks.py                      # Extensions Kedro (EnergyHook, SparkHooks)
 │   │   ├── pipeline_registry.py          # Déclaration des points d'entrée des pipelines
 │   │   └── settings.py                   # Paramètres de configuration Kedro
+│   └── pipelines/
+│       ├── ingest_from_bluesky/
+│       ├── nlp_transform/
+│       ├── vectorisation/
+│       ├── emotion_classification/
+│       ├── train_reliability/        # (intégré dans vectorisation/pipeline.py)
+│       └── train_finetuned/          # Fine-tuning xlm-roberta-base (run5)
 │   └── streamlit_app/
 │       ├── streamlit_app.py              # Point d'entrée IHM (incl. render_emotion_chart)
 │       ├── streamlit_logic.py            # Logique de présentation & requêtage (incl. analyze_message_emotion)
 │       ├── streamlit_color_chart.py      # Thémisation graphique
 │       ├── streamlit_config.py           # Configuration de l'IHM
 │       └── config.toml                   # Paramètres natifs Streamlit
+├── conf/
+│   └── base/
+│       ├── parameters_train_finetuned.yml # Hyperparamètres du fine-tuning xlm-roberta
+│       └── ...
 ├── Dockerfile                            # Image Kedro — exécution des pipelines data
 ├── Dockerfile.api
 ├── Dockerfile.airflow
@@ -257,13 +271,13 @@ Le service `api` dispose d'un `start_period` porté à **60 secondes** (contre 1
 
 ## 5. Pipelines de Données (Framework Kedro)
 
-Le framework **Kedro 1.0.0** est utilisé comme colonne vertébrale pour structurer le code de traitement de données. Cinq pipelines sont enregistrés dans `pipeline_registry.py` : `ingest_from_bluesky`, `nlp_transform`, `vectorisation`, `train_reliability` et `emotion_classification`.
+Le framework **Kedro 1.0.0** est utilisé comme colonne vertébrale pour structurer le code de traitement de données. Six pipelines sont enregistrés dans `pipeline_registry.py` : `ingest_from_bluesky`, `nlp_transform`, `vectorisation`, `train_reliability`, `emotion_classification` et `train_finetuned`.
 
 Par défaut, le pipeline `__default__` exécute le cycle ETL complet :
 
 $$\text{ingest\_from\_bluesky} \longrightarrow \text{nlp\_transform} \longrightarrow \text{vectorisation} \longrightarrow \text{emotion\_classification}$$
 
-Le pipeline `train_reliability` est isolé de la routine `__default__` : il s'exécute en ponctuel (via `make run3`) pour générer `reliability_classifier.pkl` avant que l'API puisse utiliser le classifieur supervisé.
+Les pipelines `train_reliability` et `train_finetuned` sont isolés de la routine `__default__` : ils s'exécutent en ponctuel (`make run3` et `make run5`) pour générer les artefacts ML avant que l'API puisse utiliser les classifieurs supervisés.
 
 ```mermaid
 flowchart LR
@@ -286,15 +300,15 @@ flowchart LR
 
     subgraph P2["Pipeline : nlp_transform"]
         N3["get_posts_to_treat"]
-        N4["clean_text"]
+        N4["clean_text\n(+ extract_style_features avant nettoyage)"]
         N5["normalize_text"]
-        N6["save_to_db"]
+        N6["save_to_db\n(incl. style_features)"]
         N3 --> N4 --> N5 --> N6
     end
 
     subgraph P3["Pipeline : vectorisation"]
         N7["get_cleaned_posts"]
-        N8["encode_texts\nSentenceTransformer (embeddings)"]
+        N8["encode_texts\nSentenceTransformer (384-dim) + style (5-dim) → 389-dim"]
         N9["cluster_posts\nKMeans (k=2)"]
         N10["save_model_artifacts"]
         N11["save_predictions"]
@@ -310,6 +324,14 @@ flowchart LR
         N12 --> N13 --> N14
     end
 
+    subgraph P5["Pipeline : train_finetuned (run5 — ponctuel)"]
+        N15["get_finetuning_data"]
+        N16["finetune_xlm_roberta\n(3 epochs, lr=2e-5, freeze all except last 2 layers)"]
+        N15 --> N16
+    end
+
+    FT[("data/06_models/\nxlm_roberta_finetuned/")]
+
     BS --> N1a
     BS --> N1b
     N2 --> M1
@@ -317,9 +339,11 @@ flowchart LR
     N6 --> M2
     M2 --> N7
     M2 --> N12
+    M2 --> N15
     N10 --> PKL
     N11 --> M3
     N14 --> M4
+    N16 --> FT
 
 ```
 
@@ -374,6 +398,9 @@ Le processus applique successivement deux niveaux de traitement sur le contenu t
 ```
 [Texte Brut]
    │
+   ├──► extract_style_features() → 5 features stylistiques (AVANT tout nettoyage)
+   │    caps_ratio, exclamation_density, question_density, lexical_diversity, avg_word_length
+   │
    ▼
 1. Passage en minuscules
 2. Élimination des URL (Regex : http\S+|www\S+)
@@ -394,6 +421,8 @@ Le processus applique successivement deux niveaux de traitement sur le contenu t
 [Colonne : normalized_text]
 
 ```
+
+> **Extraction précoce des features stylistiques :** Les 5 features sont extraites sur le texte **brut** (avant nettoyage) car elles capturent des signaux de manipulation souvent détruits par le nettoyage — majuscules, ponctuation excessive, emojis. Elles sont stockées dans `cleaned_posts.style_features` et concaténées aux embeddings dans les pipelines `vectorisation` et `train_reliability`.
 
 * **Commande d'activation :** `kedro run --pipeline=nlp_transform` (ou via `make run2`).
 
@@ -418,7 +447,9 @@ vectorisation:
 
 Le pipeline extrait le texte normalisé des publications non encore classifiées. Les textes sont encodés en vecteurs denses via **SentenceTransformer** (modèle `paraphrase-multilingual-MiniLM-L12-v2`, configurable via le paramètre `embedding_model`). Cette approche sémantique remplace une ancienne vectorisation TF-IDF et produit des représentations multilingues L2-normalisées.
 
-La matrice d'embeddings $X$ est soumise à un partitionnement via l'algorithme des **K-Means** ($k=2$).
+Les 5 features stylistiques stockées dans `cleaned_posts.style_features` sont ensuite concaténées aux embeddings pour former une **matrice de features à 389 dimensions** (384 embeddings + 5 style features). Les style features sont récupérées depuis le document MongoDB et utilisées directement — elles ont été calculées lors du pipeline `nlp_transform`.
+
+La matrice $X$ (389-dim) est soumise à un partitionnement via l'algorithme des **K-Means** ($k=2$).
 
 > **Orientation dynamique des clusters :**
 > L'identité "real" et "fake" des clusters n'est pas fixée arbitrairement. À l'issue du clustering, chaque cluster reçoit un score :
@@ -477,13 +508,50 @@ Le traitement s'effectue par batches configurables (`batch_size`). Les paramètr
 
      > Cette approche évite la circularité des pseudo-labels KMeans : les labels sont ancrés sur l'identité des sources (comptes vérifiés vs. thème "misinformation"), pas sur le clustering.
 
-  2. Encodage dense via `SentenceTransformer` (`paraphrase-multilingual-MiniLM-L12-v2`) — vecteurs L2-normalisés.
-  3. Entraînement d'une `LogisticRegression` (scikit-learn) avec `class_weight="balanced"` et validation croisée ROC-AUC (5-fold).
-  4. Sérialisation du classifieur dans `data/06_models/reliability_classifier.pkl`.
+  2. Encodage dense via `SentenceTransformer` (`paraphrase-multilingual-MiniLM-L12-v2`) — vecteurs L2-normalisés (384-dim).
+  3. Concaténation des **5 features stylistiques** déjà stockées dans `cleaned_posts.style_features` → matrice finale **389-dim** (384 + 5).
+  4. Entraînement d'une `LogisticRegression` (scikit-learn) avec `class_weight="balanced"` et validation croisée ROC-AUC (5-fold) sur la matrice 389-dim.
+  5. Sérialisation du classifieur dans `data/06_models/reliability_classifier.pkl`.
 
 Le score ROC-AUC est journalisé à l'issue de l'entraînement. Ce pipeline est inclus dans `kedro run --pipeline=vectorisation` (via `make run3`) et peut aussi être exécuté isolément.
 
 * **Commande d'activation :** `kedro run --pipeline=train_reliability` (ou via `make run3` qui l'enchaîne après vectorisation).
+
+---
+
+### 5.6 Pipeline `train_finetuned` (Exécution Ponctuelle)
+
+* **Objectif :** Fine-tuner le modèle `xlm-roberta-base` sur les posts Bluesky labellisés afin de produire le **classifieur PRIMARY** de la cascade API. Plus précis que `ReliabilityService` (LogReg) lorsqu'un corpus suffisant est disponible.
+* **Composants (Nodes) :**
+  * `get_finetuning_data_node` : Extraction depuis `cleaned_posts` — même logique de labels que `train_reliability` (`source_label = "reliable"` → 1, catégorie `"Misinformation"` → 0). Lève `ValueError` si le corpus est insuffisant (seuil configurable : `min_reliable=30`, `min_misinfo=30`).
+  * `finetune_xlm_roberta_node` : Fine-tuning via HuggingFace `Trainer`.
+
+* **Stratégie de fine-tuning :**
+  1. Chargement de `xlm-roberta-base` (classification à 2 classes).
+  2. **Gel sélectif des paramètres** : tous les paramètres sont gelés, puis seuls les 2 dernières couches de l'encodeur (`roberta.encoder.layer.10`, `roberta.encoder.layer.11`) et la tête de classification sont dégelées — évite l'overfitting sur les petits corpus.
+  3. Split 80/20 train/val (stratifié).
+  4. Entraînement avec `eval_strategy="epoch"`, `load_best_model_at_end=True`, métrique pilote : **ROC-AUC**.
+  5. Métriques journalisées : `roc_auc` + `accuracy` par epoch.
+  6. Sauvegarde du modèle et du tokenizer dans `data/06_models/xlm_roberta_finetuned/` (format HuggingFace natif).
+
+* **Configuration de référence (`conf/base/parameters_train_finetuned.yml`) :**
+
+```yaml
+train_finetuned:
+  model_name: "xlm-roberta-base"
+  max_length: 128
+  batch_size: 16
+  num_epochs: 3
+  learning_rate: 2.0e-5
+  unfreeze_layers: ["roberta.encoder.layer.11", "roberta.encoder.layer.10", "classifier"]
+  model_path: "data/06_models/xlm_roberta_finetuned"
+  min_reliable: 30
+  min_misinfo: 30
+```
+
+> **Note :** Ce pipeline est intentionnellement exclu du `__default__` (ETL de routine). Il nécessite un corpus suffisant et un temps d'entraînement significatif (CPU-only : plusieurs heures). Il est déclenché manuellement via `make run5` une fois le corpus constitué.
+
+* **Commande d'activation :** `kedro run --pipeline=train_finetuned` (ou via `make run5`).
 
 ---
 
@@ -500,7 +568,8 @@ bluesky_db (Base de données)
   │           source_label ∈ { "reliable", "unverified" } — attribué à l'ingestion selon la source
   │
   ├── cleaned_posts (Publications prétraitées par NLP)
-  │     └── [ _id, unique_id, username, created_at, category, normalized_text, utc_saved_at ]
+  │     └── [ _id, unique_id, username, created_at, category, source_label, normalized_text, style_features: [5 floats], utc_saved_at ]
+  │           style_features = [caps_ratio, exclamation_density, question_density, lexical_diversity, avg_word_length]
   │
   ├── classified_posts (Résultats d'inférence KMeans/Reliability)
   │     └── [ _id, unique_id, username, category, normalized_text, fake_news_prob, is_real, cluster, classified_at ]
@@ -517,9 +586,29 @@ bluesky_db (Base de données)
 
 ---
 
-## 7. Green IT & Monitoring Énergétique (EnergyHook)
+## 7. Hooks Kedro (MongoIndexHook & EnergyHook)
 
-Afin d'intégrer les problématiques d'éco-conception logicielle (Green IT), le projet intègre un mécanisme d'audit énergétique systématique via l'implémentation de la classe `EnergyHook` (située dans `src/projet_etudes/hooks.py`), qui étend le cycle de vie natif de Kedro.
+Le projet étend le cycle de vie Kedro via deux hooks déclarés dans `src/projet_etudes/hooks.py`.
+
+### MongoIndexHook
+
+Avant le démarrage de chaque pipeline, `MongoIndexHook` crée automatiquement un index sur le champ `unique_id` pour les quatre collections principales (`posts`, `cleaned_posts`, `classified_posts`, `emotion_posts`). Cela garantit des performances de requête acceptables même sur des corpus larges, sans intervention manuelle.
+
+```
+[before_pipeline_run]
+       │  Connexion MongoDB
+       ▼
+create_index("unique_id", background=True) × 4 collections
+       │
+       ▼
+[Pipeline démarre]
+```
+
+Toute exception est interceptée et journalisée en `WARNING` — le pipeline n'est pas bloqué si la création d'index échoue.
+
+### EnergyHook (Green IT)
+
+Afin d'intégrer les problématiques d'éco-conception logicielle (Green IT), le projet intègre un mécanisme d'audit énergétique systématique via l'implémentation de la classe `EnergyHook`, qui s'exécute autour de chaque nœud Kedro.
 
 ```
 [Début du Pipeline]
@@ -535,7 +624,7 @@ Afin d'intégrer les problématiques d'éco-conception logicielle (Green IT), le
 [Après exécution du Node]
        │  Arrêt du tracker (tracker.stop())
        │  Extraction des métriques (final_emissions_data)
-       │  Appel asynchrone à energy_service.save_energy_log()
+       │  Appel à energy_service.save_energy_log()
        ▼
 [Node Suivant ou Fin du Pipeline]
 
@@ -569,7 +658,10 @@ Retourne le **score de crédibilité stylistique** d'un texte soumis par l'utili
 ```
 
 * **Logique métier interne :**
-1. **Score de crédibilité (ReliabilityService — principal) :** Encodage du texte via `SentenceTransformer` puis prédiction de probabilité par `LogisticRegression`. Si `reliability_classifier.pkl` est absent, repli automatique sur `KMeansService` avec journalisation d'un avertissement.
+1. **Cascade de classifieurs (priorité décroissante) :**
+   * **`FinetunedService` (PRIMARY)** : Inférence via `xlm-roberta-base` fine-tuné (`data/06_models/xlm_roberta_finetuned/`). Si le dossier n'existe pas (`FileNotFoundError`), repli automatique sur le niveau suivant.
+   * **`ReliabilityService` (FALLBACK 1)** : Encodage du texte via `SentenceTransformer` (384-dim) + 5 style features extraites à la volée → 389-dim, puis prédiction de probabilité par `LogisticRegression`. Si `reliability_classifier.pkl` est absent, repli sur `KMeansService`.
+   * **`KMeansService` (FALLBACK 2)** : Clustering non supervisé — dernier recours si aucun artefact supervisé n'est disponible.
 2. **Traduction du score en niveau de crédibilité discret (`ProbabilityScoreModel`) :**
    * $\text{Score} \ge 0.60 \longrightarrow \text{"true"}$ — style très proche des sources fiables
    * $\text{Score} \ge 0.40 \longrightarrow \text{"very likely true"}$
@@ -579,22 +671,37 @@ Retourne le **score de crédibilité stylistique** d'un texte soumis par l'utili
 3. **Explication stylistique asynchrone (`OllamaService`) :** Sollicitation du LLM local `qwen2:1.5b` via `httpx.AsyncClient` (timeout 300 s). Le prompt détecte la langue du texte et produit 2-3 phrases décrivant les caractéristiques stylistiques qui ont influencé le score. En cas de défaillance d'Ollama, une chaîne vide est retournée sans bloquer la réponse.
 4. **Télémétrie :** Incrémentation des compteurs Prometheus selon le niveau de crédibilité rendu.
 
-* **Contrat de sortie (JSON) — voie principale (`ReliabilityService`) :**
+* **Contrat de sortie (JSON) — voie principale (`FinetunedService`) :**
+```json
+{
+  "verdict": "91% real",
+  "probability": 0.9124,
+  "based_on": "xlm_roberta_finetuned",
+  "label": "true",
+  "score_pct": 91,
+  "explanation": "L'analyse linguistique met en évidence une structure syntaxique informative..."
+}
+```
+* **Contrat de sortie (JSON) — voie de repli 1 (`ReliabilityService`) :**
 ```json
 {
   "verdict": "true | very likely true | uncertain | very likely false | false",
   "probability": 0.9124,
   "based_on": "reliability_classifier",
-  "explanation": "L'analyse linguistique met en évidence une structure syntaxique informative..."
+  "label": "true",
+  "score_pct": 91,
+  "explanation": "..."
 }
 ```
-* **Contrat de sortie (JSON) — voie de repli (`KMeansService`) :**
+* **Contrat de sortie (JSON) — voie de repli 2 (`KMeansService`) :**
 ```json
 {
   "verdict": "uncertain",
   "probability": 0.5,
   "based_on": "kmeans",
   "cluster": 1,
+  "label": "uncertain",
+  "score_pct": 50,
   "explanation": ""
 }
 ```
@@ -639,9 +746,10 @@ Les modules logés dans le répertoire `shared/` constituent la bibliothèque de
 
 * **`shared/mongo.py` :** Encapsulation du client de connexion PyMongo. Fournit la méthode d'accès sécurisé aux collections de la base `bluesky_db`.
 * **`shared/energy_service.py` :** Couche d'abstraction pour l'archivage et la récupération des journaux d'émissions carbone stockés dans la collection `energy_logs`.
-* **`shared/embedding_service.py` :** Encodeur dense Singleton basé sur `SentenceTransformer` (`paraphrase-multilingual-MiniLM-L12-v2` par défaut, configurable via `EMBEDDING_MODEL`). Produit des vecteurs L2-normalisés. Partagé par `ReliabilityService` et le pipeline `train_reliability`. Expose également `ProbabilityScoreModel` (seuils de classification : 0.60 / 0.40 / 0.20).
-* **`shared/reliability_service.py` :** Singleton chargeant le classifieur `LogisticRegression` sérialisé (`reliability_classifier.pkl`). Classifieur **principal** de l'endpoint `/ask`. Lève `FileNotFoundError` si l'artefact est absent (entraînement requis via `train_reliability`).
-* **`shared/kmeans_service.py` :** Singleton chargeant l'artefact `kmeans_model.pkl`. Encode le texte via `embedding_service.encode()` (SentenceTransformer), puis prédit le cluster. Classifieur **de repli** utilisé par `/ask` si `ReliabilityService` n'est pas disponible.
+* **`shared/finetuned_service.py` :** Singleton chargeant le modèle `xlm-roberta-base` fine-tuné depuis `data/06_models/xlm_roberta_finetuned/`. Classifieur **PRIMARY** de l'endpoint `/ask`. Lève `FileNotFoundError` si le dossier est absent (entraînement requis via `make run5`). Le chargement de `torch` et `transformers` est différé à l'instanciation pour éviter un import coûteux si le modèle n'existe pas.
+* **`shared/embedding_service.py` :** Encodeur dense Singleton basé sur `SentenceTransformer` (`paraphrase-multilingual-MiniLM-L12-v2` par défaut, configurable via `EMBEDDING_MODEL`). Produit des vecteurs L2-normalisés (384-dim). Expose également `extract_style_features(text)` (5 features stylistiques) et `ProbabilityScoreModel` (seuils de classification : 0.60 / 0.40 / 0.20).
+* **`shared/reliability_service.py` :** Singleton chargeant le classifieur `LogisticRegression` sérialisé (`reliability_classifier.pkl`). Classifieur **FALLBACK 1** de l'endpoint `/ask`. Lève `FileNotFoundError` si l'artefact est absent (entraînement requis via `make run3`).
+* **`shared/kmeans_service.py` :** Singleton chargeant l'artefact `kmeans_model.pkl`. Encode le texte via `embedding_service.encode()` (SentenceTransformer), puis prédit le cluster. Classifieur **FALLBACK 2** utilisé par `/ask` si `ReliabilityService` n'est pas disponible.
 * **`shared/emotion_inference_service.py` :** Singleton chargeant le modèle `j-hartmann/emotion-english-distilroberta-base` via HuggingFace `pipeline`. Expose `classify(text)` qui retourne les 7 scores Ekman triés par confiance décroissante. Utilisé par l'endpoint `/emotion` et pré-chargé au démarrage de l'API.
 * **`shared/ollama_service.py` :** Connecteur asynchrone gérant la communication avec l'API HTTP du conteneur Ollama local (`qwen2:1.5b`). Implémente `LLMInterface`. Inclut une détection automatique de la langue du texte soumis dans le prompt.
 * **`shared/claude_service.py` :** Alternative d'explication LLM via `claude-agent-sdk` (modèle `claude-opus-4-6`). Implémente `LLMInterface`. Non actif en production principale (disponible comme remplacement d'Ollama).
@@ -949,9 +1057,17 @@ make run3
 
 # Étape 5 : Classification des émotions (optionnel pour le démarrage de l'API,
 #   requis pour alimenter l'onglet Analytics > Emotions de Streamlit)
-kedro run --pipeline=emotion_classification
+make run4          # kedro run --pipeline=emotion_classification
 
-# Étape 6 : Démarrage des modules applicatifs de service
+# Étape 6 (optionnel) : Fine-tuning xlm-roberta (activer le classifieur PRIMARY)
+#   Nécessite un corpus suffisant (≥ 30 posts reliable + ≥ 30 Misinformation).
+#   CPU-only : plusieurs heures. Avec GPU : ~15-30 min.
+make run5          # kedro run --pipeline=train_finetuned
+
+# Alternative : exécuter toutes les étapes 1-5 en séquence
+make runall        # run1 → run2 → run3 → run4 → run5
+
+# Étape 7 : Démarrage des modules applicatifs de service
 make api           # uvicorn src.api.api:app --host 0.0.0.0 --port 8080
 make web           # streamlit run src/streamlit_app/streamlit_app.py
 
@@ -976,6 +1092,8 @@ make down          # docker compose down -v
 | 2 | **Modèle d'émotion anglophone** : `j-hartmann/emotion-english-distilroberta-base` est entraîné sur de l'anglais. Bluesky contient des posts multilingues. | Scores d'émotion potentiellement inexacts sur les posts non anglais. | Utiliser un modèle multilingue ou filtrer l'ingestion à `lang="en"` uniquement. |
 | 3 | **HTTP sans TLS** : Nginx expose uniquement le port 80. Les communications sont en clair. | Pas de confidentialité des données en transit, pas d'URL `https://`. | Mettre en place Let's Encrypt + Certbot ou un reverse proxy TLS en amont (Cloudflare, Caddy). |
 | 4 | **Credentials Airflow par défaut** : `admin`/`admin` et `AIRFLOW__WEBSERVER__SECRET_KEY=changeme` sont codés dans `docker-compose.yml`. | Exposition de l'interface Airflow à toute personne connaissant l'IP du serveur. | Injecter ces valeurs via le fichier `.env` et forcer leur changement au premier déploiement. |
-| 5 | **Pas d'indexation MongoDB** : Aucun index explicite sur `unique_id` ou `classified_at` dans les collections. | Dégradation des performances en lecture au fur et à mesure que les collections grossissent. | Créer des index uniques sur `unique_id` (toutes collections) et des index TTL si une rétention est souhaitée. |
+| 5 | **Indexation MongoDB partielle** : `MongoIndexHook` crée un index non-unique sur `unique_id` (toutes collections), mais aucun index sur `created_at`, `category` ou `classified_at`. | Requêtes filtrées sur ces champs de plus en plus lentes sur les grands corpus. | Ajouter des index composés sur les champs de filtrage fréquents ; envisager un TTL sur `classified_posts` pour limiter la taille. |
 | 6 | **Inférence Ollama CPU-only** : Le modèle `qwen2:1.5b` tourne sur CPU dans Docker. | Latence de réponse `/ask` pouvant atteindre 2–3 minutes à froid (premier appel après démarrage). | Passer à une instance avec GPU ou utiliser `ClaudeService` / `GeminiService` comme fallback LLM. |
-| 7 | **`rag.py`, `claude_service.py`** : Modules présents dans `shared/` mais non câblés à l'API de production. | Code mort maintenu, risque de divergence silencieuse avec l'API active. | Soit intégrer formellement, soit déplacer dans un répertoire `experimental/` clairement séparé. |
+| 7 | **`rag.py`, `claude_service.py`, `gemini_service.py`** : Modules présents dans `shared/` mais non câblés à l'API de production. | Code mort maintenu, risque de divergence silencieuse avec l'API active. | Soit intégrer formellement, soit déplacer dans un répertoire `experimental/` clairement séparé. |
+| 8 | **Fine-tuning CPU-only** : `train_finetuned` (run5) ne détecte pas de GPU dans les environnements EC2 standard. | Plusieurs heures d'entraînement pour 3 epochs sur un corpus modeste. | Utiliser une instance EC2 avec GPU (p3/g4dn) pour le run5, ou entraîner localement puis copier `data/06_models/xlm_roberta_finetuned/` sur le serveur. |
+| 9 | **Modèle fine-tuné non entraîné par défaut** : `data/06_models/xlm_roberta_finetuned/` est absent au premier déploiement. | L'API démarre en mode dégradé (ReliabilityService ou KMeans). Le classifieur PRIMARY xlm-roberta est inactif. | Exécuter `make run5` après constitution d'un corpus suffisant (≥ 30 posts par classe). |
