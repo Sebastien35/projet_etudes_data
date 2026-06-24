@@ -51,11 +51,7 @@ def send_message_api(message: str) -> dict:
 
     verdict = data.get("verdict", "?% real")
     prob = data.get("probability")
-    color = (
-        ColorChart.prob_color(prob)
-        if prob is not None
-        else ColorChart.TEXT_MUTED
-    )
+    color = ColorChart.prob_color(prob) if prob is not None else ColorChart.TEXT_MUTED
     return {
         "verdict": verdict,
         "color": color,
@@ -112,6 +108,60 @@ def get_classified_posts() -> pd.DataFrame:
     return df
 
 
+_MIN_KEYWORD_LEN = 3  # minimum characters for a keyword to be counted
+
+_KEYWORD_BLACKLIST = {
+    "be",
+    "have",
+    "do",
+    "not",
+    "say",
+    "get",
+    "make",
+    "go",
+    "know",
+    "see",
+    "use",
+    "would",
+    "could",
+    "should",
+    "the",
+    "a",
+    "an",
+    "is",
+    "it",
+    "in",
+    "of",
+    "to",
+    "and",
+    "or",
+    "for",
+    "on",
+    "at",
+    "by",
+    "with",
+    "this",
+    "de",
+    "la",
+    "le",
+    "et",
+    "les",
+    "des",
+    "un",
+    "une",
+    "pour",
+    "dans",
+    "que",
+    "qui",
+    "sur",
+    "pas",
+    "plus",
+    "ne",
+    "au",
+    "aux",
+}
+
+
 def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
     grouped = (
         df.groupby(["category", "username"])
@@ -123,69 +173,51 @@ def top_users_per_category(df: pd.DataFrame, top_k: int = 10) -> pd.DataFrame:
 
 
 def trending_keywords(df: pd.DataFrame, top_k: int = 20) -> pd.DataFrame:
-    blacklist = {
-        "be",
-        "have",
-        "do",
-        "not",
-        "say",
-        "get",
-        "make",
-        "go",
-        "know",
-        "see",
-        "use",
-        "would",
-        "could",
-        "should",
-        "the",
-        "a",
-        "an",
-        "is",
-        "it",
-        "in",
-        "of",
-        "to",
-        "and",
-        "or",
-        "for",
-        "on",
-        "at",
-        "by",
-        "with",
-        "this",
-        "de",
-        "la",
-        "le",
-        "et",
-        "les",
-        "des",
-        "un",
-        "une",
-        "pour",
-        "dans",
-        "que",
-        "qui",
-        "sur",
-        "pas",
-        "plus",
-        "ne",
-        "au",
-        "aux",
-    }
     counter = Counter()
-    min_length = 2
     for text in df["normalized_text"].dropna():
         counter.update(
-            w for w in text.split() if w not in blacklist and len(w) > min_length and w.isalpha()
+            w
+            for w in text.split()
+            if w not in _KEYWORD_BLACKLIST
+            and len(w) >= _MIN_KEYWORD_LEN
+            and w.isalpha()
         )
     return pd.DataFrame(counter.most_common(top_k), columns=["keyword", "count"])
+
+
+def trending_keywords_by_category(df: pd.DataFrame, top_k: int = 12) -> pd.DataFrame:
+    """Top keywords per source category."""
+    rows = []
+    for cat in df["category"].dropna().unique():
+        counter = Counter()
+        for text in df[df["category"] == cat]["normalized_text"].dropna():
+            counter.update(
+                w
+                for w in text.split()
+                if w not in _KEYWORD_BLACKLIST
+                and len(w) >= _MIN_KEYWORD_LEN
+                and w.isalpha()
+            )
+        for kw, cnt in counter.most_common(top_k):
+            rows.append({"category": cat, "keyword": kw, "count": cnt})
+    return (
+        pd.DataFrame(rows)
+        if rows
+        else pd.DataFrame(columns=["category", "keyword", "count"])
+    )
 
 
 def posts_per_hour(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["hour"] = df["created_at"].dt.hour
     return df.groupby("hour").size().reset_index(name="count").sort_values("hour")
+
+
+def posts_per_day(df: pd.DataFrame) -> pd.DataFrame:
+    """Daily post counts."""
+    df = df.copy()
+    df["date"] = df["created_at"].dt.normalize()
+    return df.groupby("date").size().reset_index(name="count").sort_values("date")
 
 
 def fake_real_distribution(df: pd.DataFrame) -> pd.DataFrame:
@@ -197,6 +229,29 @@ def fake_real_distribution(df: pd.DataFrame) -> pd.DataFrame:
         .size()
         .reset_index(name="count")
         .sort_values("count", ascending=False)
+    )
+
+
+def classification_by_category(df: pd.DataFrame) -> pd.DataFrame:
+    """Real vs Fake counts per source category (for stacked bar)."""
+    if df.empty or "label" not in df.columns:
+        return pd.DataFrame(columns=["category", "label", "count"])
+    return df.groupby(["category", "label"]).size().reset_index(name="count")
+
+
+def prob_histogram(df: pd.DataFrame, n_bins: int = 10) -> pd.DataFrame:
+    """Bin fake_news_prob into equal buckets for distribution display."""
+    if df.empty or "fake_news_prob" not in df.columns:
+        return pd.DataFrame(columns=["bin_start", "count"])
+    df = df.copy()
+    df["bin_start"] = (df["fake_news_prob"] * n_bins).astype(int).clip(
+        0, n_bins - 1
+    ) / n_bins
+    return (
+        df.groupby("bin_start")
+        .size()
+        .reset_index(name="count")
+        .sort_values("bin_start")
     )
 
 

@@ -7,18 +7,24 @@ from streamlit_color_chart import ColorChart, prob_score_model
 from streamlit_logic import (
     analyze_message_emotion,
     avg_emotion_score,
+    classification_by_category,
     emotion_by_category,
     emotion_distribution,
     energy_by_node,
     energy_by_pipeline,
     energy_timeline,
+    fake_real_distribution,
+    get_classified_posts,
     get_emotion_posts,
     get_energy_df,
     get_posts,
+    posts_per_day,
     posts_per_hour,
+    prob_histogram,
     send_message_api,
     top_users_per_category,
     trending_keywords,
+    trending_keywords_by_category,
 )
 
 # ── Page config — must be first Streamlit call ─────────────────────────────
@@ -417,12 +423,14 @@ nav_tab1, nav_tab2, nav_tab3 = st.tabs(
 def load_data():
     df = get_posts()
     if df.empty:
-        return df, None, None, None
+        return df, None, None, None, None, None
     return (
         df,
         top_users_per_category(df),
         trending_keywords(df),
         posts_per_hour(df),
+        trending_keywords_by_category(df),
+        posts_per_day(df),
     )
 
 
@@ -440,9 +448,25 @@ def load_emotion_data():
     )
 
 
-df_posts, df_category, df_trend, df_hour = load_data()
+# ── Load classification data (cached 5 min) ─────────────────────────────────
+@st.cache_data(ttl=300)
+def load_classified_data():
+    df = get_classified_posts()
+    if df.empty:
+        return df, None, None, None
+    return (
+        df,
+        fake_real_distribution(df),
+        prob_histogram(df),
+        classification_by_category(df),
+    )
+
+
+df_posts, df_category, df_trend, df_hour, df_kw_by_cat, df_daily = load_data()
 df_emotion, df_emo_dist, df_emo_cat, df_emo_score = load_emotion_data()
+df_classified, df_fake_real, df_prob_hist, df_cls_by_cat = load_classified_data()
 has_data = df_posts is not None and not df_posts.empty
+has_classified = df_classified is not None and not df_classified.empty
 
 
 # ── Altair dark-mode theme ─────────────────────────────────────────────────
@@ -701,9 +725,15 @@ with nav_tab1:
 with nav_tab2:
     st.markdown(
         f"""
-    <div style="font-size:1.1rem; font-weight:700; color:{C.TEXT_MAIN};
-                letter-spacing:-0.3px; margin-bottom:1rem;">
-        Analytics
+    <div class="glass-card">
+        <div style="font-size:1.1rem; font-weight:700; color:{C.TEXT_MAIN};
+                    letter-spacing:-0.3px; margin-bottom:4px;">
+            Corpus Analytics
+        </div>
+        <div style="font-size:0.84rem; color:{C.TEXT_MUTED}; line-height:1.6;">
+            Live insights from the Bluesky corpus — classification results,
+            content trends, and emotional patterns.
+        </div>
     </div>
     """,
         unsafe_allow_html=True,
@@ -724,33 +754,184 @@ with nav_tab2:
         st.stop()
 
     top_kw = df_trend.iloc[0]["keyword"] if not df_trend.empty else "—"
+    n_classified = len(df_classified) if has_classified else 0
+    fake_rate = (
+        f"{int(round((~df_classified['is_real']).sum() / n_classified * 100))}%"
+        if has_classified
+        else "—"
+    )
 
-    r1c1, r1c2 = st.columns(2)
+    r1c1, r1c2, r1c3, r1c4 = st.columns(4)
     r1c1.metric("Total Posts", f"{len(df_posts):,}")
     r1c2.metric("Authors", f"{df_posts['username'].nunique():,}")
+    r1c3.metric("Classified", f"{n_classified:,}" if has_classified else "—")
+    r1c4.metric("Fake Rate", fake_rate)
 
-    r2c1, r2c2 = st.columns(2)
-    r2c1.metric("Categories", f"{df_posts['category'].nunique():,}")
-    r2c2.metric("Top Keyword", top_kw)
-
-    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
     if st.button("↺  Reload data", key="reload_data"):
         st.cache_data.clear()
         st.rerun()
-
     st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Keywords", "Authors", "By Hour", "Emotions"])
+    tab_cls, tab_kw, tab_act, tab_auth, tab_emo = st.tabs(
+        [
+            "  Classification  ",
+            "  Keywords  ",
+            "  Activity  ",
+            "  Authors  ",
+            "  Emotions  ",
+        ]
+    )
 
-    with tab1:
+    # ── Classification tab ─────────────────────────────────────────────────
+    with tab_cls:
+        if not has_classified:
+            st.markdown(
+                f"""
+            <div class="glass-card" style="text-align:center; padding:2.5rem 1rem;">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">🤖</div>
+                <div style="color:{C.TEXT_MUTED}; font-size:0.88rem;">
+                    No classification data — run <code>make run3</code> first.
+                </div>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+        else:
+            n_real = int(df_classified["is_real"].sum())
+            n_fake = n_classified - n_real
+            avg_prob = df_classified["fake_news_prob"].mean()
+
+            cc1, cc2, cc3 = st.columns(3)
+            cc1.metric("Real", f"{n_real:,}", f"{n_real / n_classified * 100:.1f}%")
+            cc2.metric("Fake", f"{n_fake:,}", f"-{n_fake / n_classified * 100:.1f}%")
+            cc3.metric("Avg Confidence", f"{avg_prob:.1%}")
+            st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+
+            cls_col1, cls_col2 = st.columns(2)
+
+            with cls_col1:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                if df_fake_real is not None and not df_fake_real.empty:
+                    fr_domain = df_fake_real["label"].tolist()
+                    fr_range = [
+                        "#34d399" if lbl == "Real" else "#f87171" for lbl in fr_domain
+                    ]
+                    donut_cls = (
+                        alt.Chart(df_fake_real)
+                        .mark_arc(
+                            innerRadius=52,
+                            outerRadius=95,
+                            stroke="rgba(0,0,0,0.15)",
+                            strokeWidth=1,
+                        )
+                        .encode(
+                            theta=alt.Theta("count:Q"),
+                            color=alt.Color(
+                                "label:N",
+                                scale=alt.Scale(domain=fr_domain, range=fr_range),
+                                legend=alt.Legend(
+                                    orient="bottom", title=None, labelFontSize=12
+                                ),
+                            ),
+                            tooltip=[
+                                alt.Tooltip("label:N", title="Verdict"),
+                                alt.Tooltip("count:Q", title="Posts"),
+                            ],
+                        )
+                        .properties(height=240, title="Real vs Fake")
+                    )
+                    st.altair_chart(glass_chart(donut_cls), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with cls_col2:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                if df_prob_hist is not None and not df_prob_hist.empty:
+                    _REAL_THRESHOLD = 0.5  # probability boundary: >= real, < fake
+                    hist_chart = (
+                        alt.Chart(df_prob_hist)
+                        .mark_bar(
+                            size=20,
+                            cornerRadiusTopLeft=4,
+                            cornerRadiusTopRight=4,
+                        )
+                        .encode(
+                            x=alt.X(
+                                "bin_start:Q",
+                                title="Probability of being real",
+                                scale=alt.Scale(domain=[0, 1]),
+                                axis=alt.Axis(format=".0%", tickCount=5),
+                            ),
+                            y=alt.Y("count:Q", title="Posts"),
+                            color=alt.condition(
+                                alt.datum.bin_start >= _REAL_THRESHOLD,
+                                alt.value("#34d399"),
+                                alt.value("#f87171"),
+                            ),
+                            tooltip=[
+                                alt.Tooltip("bin_start:Q", title="From", format=".0%"),
+                                alt.Tooltip("count:Q", title="Posts"),
+                            ],
+                        )
+                        .properties(height=240, title="Confidence distribution")
+                    )
+                    st.altair_chart(glass_chart(hist_chart), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # Stacked normalised bar: Real% vs Fake% per source category
+            if df_cls_by_cat is not None and not df_cls_by_cat.empty:
+                sort_order = (
+                    df_cls_by_cat[df_cls_by_cat["label"] == "Real"]
+                    .set_index("category")["count"]
+                    .div(df_cls_by_cat.groupby("category")["count"].sum())
+                    .sort_values(ascending=False)
+                    .index.tolist()
+                )
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                stacked = (
+                    alt.Chart(df_cls_by_cat)
+                    .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                    .encode(
+                        x=alt.X(
+                            "category:N",
+                            sort=sort_order,
+                            title="",
+                            axis=alt.Axis(labelAngle=-30),
+                        ),
+                        y=alt.Y(
+                            "count:Q",
+                            stack="normalize",
+                            title="Share of posts",
+                            axis=alt.Axis(format=".0%"),
+                        ),
+                        color=alt.Color(
+                            "label:N",
+                            scale=alt.Scale(
+                                domain=["Real", "Fake"],
+                                range=["#34d399", "#f87171"],
+                            ),
+                            legend=alt.Legend(title="Verdict", orient="top"),
+                        ),
+                        tooltip=[
+                            alt.Tooltip("category:N", title="Category"),
+                            alt.Tooltip("label:N", title="Verdict"),
+                            alt.Tooltip("count:Q", title="Posts"),
+                        ],
+                    )
+                    .properties(height=260, title="Real vs Fake by source category")
+                )
+                st.altair_chart(glass_chart(stacked), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Keywords tab ───────────────────────────────────────────────────────
+    with tab_kw:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         base = alt.Chart(df_trend).encode(
             y=alt.Y("keyword:N", sort="-x", title="", axis=alt.Axis(labelLimit=140)),
             x=alt.X("count:Q", title="Occurrences"),
             tooltip=["keyword:N", "count:Q"],
         )
-        chart = (
+        kw_overall = (
             base.mark_bar(
                 color=C.ACCENT_PRIMARY,
                 opacity=0.20,
@@ -759,14 +940,118 @@ with nav_tab2:
             )
             + base.mark_point(filled=True, size=70, color=C.ACCENT_PRIMARY)
             + base.mark_rule(color=C.ACCENT_PRIMARY, opacity=0.35, strokeWidth=1.5)
-        ).properties(height=380)
-        st.altair_chart(glass_chart(chart), use_container_width=True)
+        ).properties(height=380, title="Top keywords — all sources")
+        st.altair_chart(glass_chart(kw_overall), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with tab2:
+        if df_kw_by_cat is not None and not df_kw_by_cat.empty:
+            CAT_COLORS = {
+                "Reliable": "#34d399",
+                "Misinformation": "#f87171",
+                "Hot Topics": "#c084fc",
+                "Discover": "#60a5fa",
+                "Trending": "#fbbf24",
+            }
+            priority = [
+                "Reliable",
+                "Misinformation",
+                "Hot Topics",
+                "Discover",
+                "Trending",
+            ]
+            ordered_cats = [
+                c for c in priority if c in df_kw_by_cat["category"].unique()
+            ]
+            ordered_cats += [
+                c for c in df_kw_by_cat["category"].unique() if c not in ordered_cats
+            ]
+            for cat in ordered_cats:
+                sub = df_kw_by_cat[df_kw_by_cat["category"] == cat]
+                if sub.empty:
+                    continue
+                color = CAT_COLORS.get(cat, C.ACCENT_PRIMARY)
+                base_cat = alt.Chart(sub).encode(
+                    y=alt.Y(
+                        "keyword:N",
+                        sort="-x",
+                        title="",
+                        axis=alt.Axis(labelLimit=130),
+                    ),
+                    x=alt.X("count:Q", title="Occurrences"),
+                    tooltip=["keyword:N", "count:Q"],
+                )
+                kw_cat = (
+                    base_cat.mark_bar(
+                        color=color,
+                        opacity=0.18,
+                        cornerRadiusTopRight=6,
+                        cornerRadiusBottomRight=6,
+                    )
+                    + base_cat.mark_point(filled=True, size=60, color=color)
+                    + base_cat.mark_rule(color=color, opacity=0.35, strokeWidth=1.5)
+                ).properties(height=max(200, len(sub) * 26), title=f"Keywords — {cat}")
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                st.altair_chart(glass_chart(kw_cat), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Activity tab ───────────────────────────────────────────────────────
+    with tab_act:
+        if df_daily is not None and not df_daily.empty:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            daily_chart = (
+                alt.Chart(df_daily)
+                .mark_area(
+                    color=C.ACCENT_PRIMARY,
+                    opacity=0.10,
+                    line={"color": C.ACCENT_PRIMARY, "strokeWidth": 2},
+                    point=alt.OverlayMarkDef(
+                        color=C.ACCENT_PRIMARY, filled=True, size=45
+                    ),
+                )
+                .encode(
+                    x=alt.X(
+                        "date:T",
+                        title="",
+                        axis=alt.Axis(format="%b %Y", labelAngle=-30),
+                    ),
+                    y=alt.Y("count:Q", title="Posts"),
+                    tooltip=[
+                        alt.Tooltip("date:T", title="Date", format="%Y-%m-%d"),
+                        alt.Tooltip("count:Q", title="Posts"),
+                    ],
+                )
+                .properties(height=220, title="Daily posting volume")
+            )
+            st.altair_chart(glass_chart(daily_chart), use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        categories = df_category["category"].unique().tolist()
-        for cat in categories:
+        hourly_chart = (
+            alt.Chart(df_hour)
+            .mark_area(
+                color=C.ACCENT_PRIMARY,
+                opacity=0.12,
+                line={"color": C.ACCENT_PRIMARY, "strokeWidth": 2},
+                point=alt.OverlayMarkDef(color=C.ACCENT_PRIMARY, filled=True, size=55),
+            )
+            .encode(
+                x=alt.X(
+                    "hour:Q",
+                    title="Hour of day (UTC)",
+                    axis=alt.Axis(tickCount=12, format="d"),
+                ),
+                y=alt.Y("count:Q", title="Posts"),
+                tooltip=["hour:Q", "count:Q"],
+            )
+            .properties(height=220, title="Posting activity by hour")
+        )
+        st.altair_chart(glass_chart(hourly_chart), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Authors tab ────────────────────────────────────────────────────────
+    with tab_auth:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        for cat in df_category["category"].unique().tolist():
             df_cat = df_category[df_category["category"] == cat].head(8)
             pie = (
                 alt.Chart(df_cat)
@@ -785,38 +1070,15 @@ with nav_tab2:
             st.altair_chart(glass_chart(pie), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with tab3:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        area = (
-            alt.Chart(df_hour)
-            .mark_area(
-                color=C.ACCENT_PRIMARY,
-                opacity=0.12,
-                line={"color": C.ACCENT_PRIMARY, "strokeWidth": 2},
-                point=alt.OverlayMarkDef(color=C.ACCENT_PRIMARY, filled=True, size=55),
-            )
-            .encode(
-                x=alt.X(
-                    "hour:Q",
-                    title="Hour of day",
-                    axis=alt.Axis(tickCount=12, format="d"),
-                ),
-                y=alt.Y("count:Q", title="Posts"),
-                tooltip=["hour:Q", "count:Q"],
-            )
-            .properties(height=260)
-        )
-        st.altair_chart(glass_chart(area), use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with tab4:
+    # ── Emotions tab ───────────────────────────────────────────────────────
+    with tab_emo:
         if df_emo_dist is None or df_emo_dist.empty:
             st.markdown(
                 f"""
             <div class="glass-card" style="text-align:center; padding:2.5rem 1rem;">
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🧠</div>
                 <div style="color:{C.TEXT_MUTED}; font-size:0.88rem;">
-                    No emotion data yet — run the
+                    No emotion data — run the
                     <code>emotion_classification</code> pipeline first.
                 </div>
             </div>
@@ -827,7 +1089,6 @@ with nav_tab2:
             emo_domain = df_emo_dist["emotion"].tolist()
             emo_range = [EMOTION_COLORS.get(e, C.ACCENT_PRIMARY) for e in emo_domain]
 
-            # ── Top metric: dominant emotion ──────────────────────────────
             dominant = df_emo_dist.iloc[0]["emotion"].capitalize()
             total_emoed = int(df_emo_dist["count"].sum())
             ec1, ec2 = st.columns(2)
@@ -835,7 +1096,6 @@ with nav_tab2:
             ec2.metric("Dominant emotion", dominant)
             st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
-            # ── Chart 1: donut — overall emotion distribution ─────────────
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             donut = (
                 alt.Chart(df_emo_dist)
@@ -867,7 +1127,6 @@ with nav_tab2:
             st.altair_chart(glass_chart(donut), use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── Chart 2: bar — avg BERT confidence per emotion ────────────
             if df_emo_score is not None and not df_emo_score.empty:
                 st.markdown('<div class="glass-card">', unsafe_allow_html=True)
                 score_colors = [
@@ -911,7 +1170,6 @@ with nav_tab2:
                 st.altair_chart(glass_chart(conf_bar), use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── Chart 3: heatmap — emotion × category ─────────────────────
             if df_emo_cat is not None and not df_emo_cat.empty:
                 st.markdown('<div class="glass-card">', unsafe_allow_html=True)
                 heatmap = (
@@ -943,7 +1201,7 @@ with nav_tab2:
         f"""
     <div style="text-align:center; margin-top:2.5rem;
                 font-size:0.68rem; color:{C.TEXT_SUBTLE}; letter-spacing:0.06em;">
-        M1 DATA SCIENCE · 2024
+        M1 DATA SCIENCE · 2025
     </div>
     """,
         unsafe_allow_html=True,
