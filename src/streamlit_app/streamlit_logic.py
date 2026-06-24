@@ -33,6 +33,21 @@ def analyze_message_emotion(text: str) -> list[dict]:
         return []
 
 
+def get_claude_opinion(claim: str) -> dict:
+    url = StreamlitConfig().api_url + "claude-opinion"
+    try:
+        response = requests.post(url, json={"question": claim}, timeout=130)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.error(f"Claude opinion error: {e}")
+        return {
+            "verdict": "UNAVAILABLE",
+            "reasoning": "Could not reach Claude.",
+            "color": "#7878a0",
+        }
+
+
 def send_message_api(message: str) -> dict:
     url = StreamlitConfig().api_url + "ask"
     try:

@@ -127,6 +127,8 @@ services:
       - ./data:/app/data
       # HuggingFace model cache — persists across image rebuilds so models aren't re-downloaded
       - hf-cache:/root/.cache/huggingface
+      # Claude Code credentials (Pro subscription auth) — mounted read-only from EC2 host
+      - ${HOME}/.claude:/root/.claude:ro
     depends_on:
       ollama:
         condition: service_healthy

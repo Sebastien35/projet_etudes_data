@@ -15,6 +15,7 @@ from streamlit_logic import (
     energy_timeline,
     fake_real_distribution,
     get_classified_posts,
+    get_claude_opinion,
     get_emotion_posts,
     get_energy_df,
     get_posts,
@@ -520,8 +521,10 @@ def render_emotion_chart(emotions: list[dict]):
     emo_range = [EMOTION_COLORS.get(e, C.ACCENT_PRIMARY) for e in domain]
 
     st.markdown(
-        f'<div style="font-size:0.70rem; color:{C.TEXT_MUTED}; text-transform:uppercase; '
-        f'letter-spacing:0.09em; margin-top:0.8rem; margin-bottom:0.25rem;">Emotion analysis</div>',
+        f'<div style="font-size:0.65rem; color:{C.TEXT_MUTED}; text-transform:uppercase; '
+        f"letter-spacing:0.10em; margin-top:0.9rem; margin-bottom:0.3rem; "
+        f'display:flex; align-items:center; gap:5px;">'
+        f'<span style="color:{C.ACCENT_PRIMARY};">◈</span> Emotional Profile</div>',
         unsafe_allow_html=True,
     )
 
@@ -576,8 +579,8 @@ with nav_tab1:
             Fact-Check a Claim
         </div>
         <div style="font-size:0.84rem; color:{C.TEXT_MUTED}; line-height:1.6;">
-            Paste any post or headline — the model checks it against
-            the Bluesky corpus and returns a verdict.
+            Paste any post or headline — the classifier checks it against the Bluesky
+            corpus, then Claude independently fact-checks it from its own knowledge.
         </div>
     </div>
     """,
@@ -620,13 +623,18 @@ with nav_tab1:
                 st.markdown(user_input)
 
             with st.chat_message("assistant"):
-                with st.spinner("Checking…"):
+                with st.spinner(
+                    "Checking… (model + Claude opinion running in parallel)"
+                ):
                     with concurrent.futures.ThreadPoolExecutor() as _pool:
                         _fact = _pool.submit(send_message_api, user_input)
                         _emo = _pool.submit(analyze_message_emotion, user_input)
+                        _claude = _pool.submit(get_claude_opinion, user_input)
                         result = _fact.result()
                         emotions = _emo.result()
+                        claude_op = _claude.result()
 
+                # ── Model analysis section ────────────────────────────────
                 verdict = result["verdict"]
                 color = result["color"]
                 expl = result["explanation"]
@@ -645,58 +653,122 @@ with nav_tab1:
                 if prob is not None:
                     pct = int(round(prob * 100))
                     prob_bar = f"""
-                    <div style="margin:0.75rem 0 0.4rem;">
+                    <div style="margin:0.75rem 0 0.5rem;">
                         <div style="display:flex; justify-content:space-between;
-                                    font-size:0.73rem; color:{C.TEXT_MUTED};
-                                    margin-bottom:6px; letter-spacing:0.04em;
+                                    font-size:0.68rem; color:{C.TEXT_MUTED};
+                                    margin-bottom:5px; letter-spacing:0.05em;
                                     text-transform:uppercase;">
                             <span>Likelihood of being real</span><span>{pct}%</span>
                         </div>
                         <div style="background:rgba(255,255,255,0.07); border-radius:99px;
-                                    height:5px; overflow:hidden;">
+                                    height:4px; overflow:hidden;">
                             <div style="width:{pct}%; height:100%;
                                         background:linear-gradient(90deg, {color}88, {color});
                                         border-radius:99px;
-                                        box-shadow: 0 0 8px {color}60;">
+                                        box-shadow:0 0 8px {color}60;">
                             </div>
                         </div>
                     </div>"""
 
+                # ── Claude opinion section ────────────────────────────────
+                c_verdict = claude_op.get("verdict", "UNAVAILABLE")
+                c_color = claude_op.get("color", "#7878a0")
+                c_reasoning = claude_op.get("reasoning", "")
+                c_is_error = c_verdict in ("UNAVAILABLE", "TIMEOUT", "ERROR")
+
+                c_verdict_label = {
+                    "TRUE": "✓ True",
+                    "UNCERTAIN": "~ Uncertain",
+                    "FALSE": "✗ False",
+                    "UNAVAILABLE": "Unavailable",
+                    "TIMEOUT": "Timed out",
+                    "ERROR": "Error",
+                }.get(c_verdict, c_verdict)
+
+                if c_is_error:
+                    claude_body = f"""
+                    <div style="font-size:0.83rem; color:{C.TEXT_SUBTLE};
+                                font-style:italic; padding:0.3rem 0;">
+                        {c_reasoning or "Claude opinion unavailable."}
+                    </div>"""
+                else:
+                    claude_body = f"""
+                    <div style="margin-bottom:0.5rem;">
+                        <span style="
+                            display:inline-flex; align-items:center; gap:5px;
+                            background:{c_color}18;
+                            border:1.5px solid {c_color}55;
+                            border-radius:99px;
+                            padding:0.2rem 0.85rem;
+                            font-size:0.75rem; font-weight:700;
+                            color:{c_color};
+                            letter-spacing:0.06em; text-transform:uppercase;
+                            box-shadow:0 0 12px {c_color}28;
+                        ">{c_verdict_label}</span>
+                    </div>
+                    <div style="font-size:0.9rem; color:{C.TEXT_MAIN}; line-height:1.7;">
+                        {c_reasoning}
+                    </div>"""
+
                 html = f"""
                 <div style="
-                    background: rgba(255,255,255,0.04);
-                    border: 1px solid rgba(255,255,255,0.09);
-                    border-radius: 18px;
-                    padding: 1rem 1.15rem;
-                    backdrop-filter: blur(24px);
-                    -webkit-backdrop-filter: blur(24px);
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.4),
-                                inset 0 1px 0 rgba(255,255,255,0.06);
+                    background:rgba(255,255,255,0.04);
+                    border:1px solid rgba(255,255,255,0.09);
+                    border-radius:18px;
+                    padding:1rem 1.15rem 0.85rem;
+                    backdrop-filter:blur(24px);
+                    -webkit-backdrop-filter:blur(24px);
+                    box-shadow:0 8px 32px rgba(0,0,0,0.4),
+                               inset 0 1px 0 rgba(255,255,255,0.06);
                 ">
-                    <div style="
-                        display: inline-flex; align-items: center; gap: 6px;
-                        background: {color}18;
-                        border: 1.5px solid {color}55;
-                        border-radius: 99px;
-                        padding: 0.22rem 0.9rem;
-                        font-size: 0.76rem; font-weight: 700;
-                        color: {color};
-                        letter-spacing: 0.06em; text-transform: uppercase;
-                        box-shadow: 0 0 14px {color}30;
-                    ">
-                        {verdict}
+
+                    <!-- ── Model Analysis ── -->
+                    <div style="font-size:0.65rem; color:{C.TEXT_MUTED};
+                                text-transform:uppercase; letter-spacing:0.10em;
+                                margin-bottom:0.55rem; display:flex;
+                                align-items:center; gap:5px;">
+                        <span style="color:{C.ACCENT_PRIMARY};">◈</span> Model Analysis
                     </div>
+
+                    <div style="
+                        display:inline-flex; align-items:center; gap:6px;
+                        background:{color}18;
+                        border:1.5px solid {color}55;
+                        border-radius:99px;
+                        padding:0.22rem 0.9rem;
+                        font-size:0.76rem; font-weight:700;
+                        color:{color};
+                        letter-spacing:0.06em; text-transform:uppercase;
+                        box-shadow:0 0 14px {color}30;
+                    ">{verdict}</div>
+
                     {prob_bar}
-                    <div style="font-size:0.9rem; color:{C.TEXT_MAIN};
-                                line-height:1.7; margin-top:0.55rem;">
+
+                    <div style="font-size:0.88rem; color:{C.TEXT_MAIN};
+                                line-height:1.7; margin-top:0.45rem;">
                         {expl}
                     </div>
-                    <div style="font-size:0.70rem; color:{C.TEXT_SUBTLE};
-                                margin-top:0.65rem; padding-top:0.55rem;
-                                border-top:1px solid rgba(255,255,255,0.06);
-                                letter-spacing:0.04em;">
+                    <div style="font-size:0.68rem; color:{C.TEXT_SUBTLE};
+                                margin-top:0.5rem; letter-spacing:0.04em;">
                         {source_label}
                     </div>
+
+                    <!-- ── Claude's Verdict ── -->
+                    <div style="margin-top:1rem; padding-top:0.9rem;
+                                border-top:1px solid rgba(255,255,255,0.07);">
+                        <div style="font-size:0.65rem; color:{C.TEXT_MUTED};
+                                    text-transform:uppercase; letter-spacing:0.10em;
+                                    margin-bottom:0.55rem; display:flex;
+                                    align-items:center; gap:5px;">
+                            <span style="color:{C.ACCENT_PRIMARY};">◈</span> Claude's Verdict
+                        </div>
+                        {claude_body}
+                        <div style="font-size:0.68rem; color:{C.TEXT_SUBTLE};
+                                    margin-top:0.55rem; letter-spacing:0.04em;">
+                            ◆ Claude Code (claude-sonnet-4-6)
+                        </div>
+                    </div>
+
                 </div>"""
 
                 st.html(html)

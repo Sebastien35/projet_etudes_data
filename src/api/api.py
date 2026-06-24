@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -5,6 +6,7 @@ import fastapi
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
+from shared.claude_cli_service import get_claude_cli_service
 from shared.emotion_inference_service import get_emotion_inference_service
 from shared.finetuned_service import get_finetuned_service
 from shared.kmeans_service import get_kmeans_service
@@ -105,6 +107,14 @@ async def analyze_emotion(request: EmotionRequest):
         raise fastapi.HTTPException(
             status_code=500, detail="Emotion analysis unavailable"
         )
+
+
+@app.post("/claude-opinion")
+async def claude_opinion(request: QuestionRequest):
+    result = await asyncio.to_thread(
+        get_claude_cli_service().fact_check, request.question
+    )
+    return result
 
 
 @app.get("/health")
