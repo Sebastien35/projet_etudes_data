@@ -8,7 +8,9 @@ import math
 import pickle
 from pathlib import Path
 
-from shared.embedding_service import encode
+import numpy as np
+
+from shared.embedding_service import encode, extract_style_features
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,9 @@ class KMeansService:
         logger.info(f"KMeansService loaded from {kmeans_path}")
 
     def classify(self, text: str) -> dict:
-        vec = encode([text])  # shape (1, embedding_dim)
+        emb = encode([text])  # shape (1, 384)
+        style = np.array([extract_style_features(text)], dtype=float)  # shape (1, 5)
+        vec = np.hstack([emb, style])  # shape (1, 389)
 
         label = int(self._km.predict(vec)[0])
         distances = self._km.transform(vec)[0]
