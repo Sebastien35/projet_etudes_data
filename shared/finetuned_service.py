@@ -10,6 +10,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 _instance = None
+_load_failed = False
 
 MODEL_PATH = "data/06_models/xlm_roberta_finetuned"
 
@@ -29,8 +30,13 @@ class FinetunedService:
             AutoTokenizer,
         )
 
-        self._tokenizer = AutoTokenizer.from_pretrained(model_path)
-        self._model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(model_path)
+            self._model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        except Exception as e:
+            raise FileNotFoundError(
+                f"Fine-tuned model at {model_path} failed to load: {e}"
+            ) from e
         self._model.eval()
         self._torch = torch
         logger.info(f"FinetunedService loaded from {model_path}")
@@ -53,7 +59,15 @@ class FinetunedService:
 
 def get_finetuned_service() -> FinetunedService:
     """Return the global FinetunedService singleton (lazy-loaded)."""
-    global _instance
+    global _instance, _load_failed
+    if _load_failed:
+        raise FileNotFoundError(
+            "Fine-tuned model unavailable (failed to load at startup)."
+        )
     if _instance is None:
-        _instance = FinetunedService()
+        try:
+            _instance = FinetunedService()
+        except FileNotFoundError:
+            _load_failed = True
+            raise
     return _instance
